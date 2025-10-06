@@ -181,7 +181,8 @@ app = FastAPI(
     title="Medical News Automation System",
     description="Система автоматизации создания новостных материалов для медицинских платформ",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False
 )
 
 # CORS middleware
