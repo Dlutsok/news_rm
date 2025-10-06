@@ -32,9 +32,6 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # Собираем приложение
 RUN npm run build
 
-# Проверяем что public скопировался
-RUN ls -la /app/ && ls -la /app/public
-
 # ============================
 # STAGE 3: Runner (финальный образ)
 # ============================
@@ -52,8 +49,8 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Копируем public файлы из builder stage
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Копируем public файлы из корня context (теперь context = корень репо)
+COPY --chown=nextjs:nodejs frontend/public ./public
 
 USER nextjs
 
