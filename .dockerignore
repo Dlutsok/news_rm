@@ -1,0 +1,48 @@
+# Глобальный .dockerignore для корня репозитория
+# Используется при сборке с context = .
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backend - исключаем всё кроме того что нужно для сборки
+backend/.pytest_cache
+backend/__pycache__
+backend/*.pyc
+backend/.env*
+backend/logs
+
+# Frontend - НЕ исключаем public!
+frontend/node_modules
+frontend/.next
+frontend/.env*.local
+frontend/.eslintrc*
+frontend/coverage
+frontend/__tests__
+
+# Deployed
+deployed
+
+# Scripts (не нужны для Docker образов)
+scripts
+
+# Docs
+docs
+
+# Claude
+.claude
