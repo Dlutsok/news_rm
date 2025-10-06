@@ -42,7 +42,7 @@ EXPENSE_TYPE_COSTS = {
 }
 
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 async def get_expenses(
     date_from: Optional[date] = Query(None, description="Дата начала периода"),
     date_to: Optional[date] = Query(None, description="Дата окончания периода"),
@@ -104,7 +104,7 @@ async def get_expenses(
         )
 
 
-@router.post("/", response_model=ExpenseRead)
+@router.post("", response_model=ExpenseRead)
 async def create_expense(
     expense_data: ExpenseCreate,
     session: Session = Depends(get_session),

@@ -11,7 +11,8 @@ sqlmodel
 psycopg2-binary
 alembic
 openai>=1.0.0
-passlib[bcrypt]
+bcrypt==4.1.3
+passlib[bcrypt]==1.7.4
 python-jose[cryptography]
 httpx
 python-docx

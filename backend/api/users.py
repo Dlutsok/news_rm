@@ -54,7 +54,7 @@ async def create_user(
         )
 
 
-@router.get("/", response_model=List[UserRead])
+@router.get("", response_model=List[UserRead])
 async def get_users(current_user: User = Depends(require_admin)):
     """
     Получить список всех пользователей (только для администраторов)
