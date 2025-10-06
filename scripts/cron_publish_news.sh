@@ -24,8 +24,8 @@ if ! docker ps --format '{{.Names}}' | grep -q "medical-news-backend"; then
     exit 1
 fi
 
-# Запускаем скрипт публикации внутри контейнера
-docker exec medical-news-backend python3 /app/scripts/publish_scheduled_news.py >> "$LOG_FILE" 2>&1
+# Запускаем скрипт публикации внутри контейнера с правильным PYTHONPATH
+docker exec medical-news-backend bash -c "cd /app && PYTHONPATH=/app python3 /app/scripts/publish_scheduled_news.py" >> "$LOG_FILE" 2>&1
 
 EXIT_CODE=$?
 

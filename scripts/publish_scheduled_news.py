@@ -15,12 +15,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from services.scheduler import publication_scheduler
 
-# Настройка логирования
+# Настройка логирования (логи пишутся в stdout, bash скрипт перенаправит в файл)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/root/logs/publication_cron.log'),
         logging.StreamHandler()
     ]
 )
