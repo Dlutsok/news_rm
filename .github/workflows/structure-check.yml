@@ -22,7 +22,7 @@ jobs:
           echo "🏗️  Checking top-level directory structure..."
 
           # Разрешенные директории в корне
-          ALLOWED_DIRS="backend frontend scripts docs .github .claude"
+          ALLOWED_DIRS="backend frontend scripts docs deployed .github .claude"
 
           # Поиск неразрешенных директорий
           DISALLOWED=""

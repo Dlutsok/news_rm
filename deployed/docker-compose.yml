@@ -1,104 +1,101 @@
 version: '3.8'
 
 services:
-  # Backend объединяет FastAPI + chat + image сервисы
+  # Backend - образ из GHCR
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/dlutsok/medical-news-backend:${TAG:-latest}
     container_name: medical-news-backend
+    env_file:
+      - .env
     environment:
-      # База данных (используем тот же IP что на сервере)
-      - DATABASE_URL=postgresql://postgres:medical2024@172.20.0.1:5432/news_aggregator
-      - DATABASE_HOST=172.20.0.1
-      - DATABASE_PORT=5432
-      - DATABASE_USER=postgres
-
-      # Секретные ключи (загружаются из .env файла)
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_HOST=${DATABASE_HOST}
+      - DATABASE_PORT=${DATABASE_PORT}
+      - DATABASE_USER=${DATABASE_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-
-      # OpenAI настройки (загружаются из .env файла)
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_HOURS=${ACCESS_TOKEN_EXPIRE_HOURS}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_PROXY_URL=${OPENAI_PROXY_URL}
-
-      # Telegram (загружаются из .env файла)
+      - MEDVESTNIK_BASE_URL=${MEDVESTNIK_BASE_URL}
+      - MEDVESTNIK_NEWS_URL=${MEDVESTNIK_NEWS_URL}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - HOST=${HOST}
+      - PORT=${PORT}
+      - DEBUG=${DEBUG}
+      - RELOAD=${RELOAD}
+      - CORS_ORIGINS_PRODUCTION=${CORS_ORIGINS_PRODUCTION}
+      - BACKEND_API_URL=${BACKEND_API_URL}
+      - BITRIX_API_TOKEN=${BITRIX_API_TOKEN}
+      - BITRIX_API_URL=${BITRIX_API_URL}
+      - BITRIX_IBLOCK_ID=${BITRIX_IBLOCK_ID}
+      - CHAT_SERVICE_PORT=${CHAT_SERVICE_PORT}
+      - CHAT_MODEL=${CHAT_MODEL}
+      - CHAT_MAX_FILE_SIZE_MB=${CHAT_MAX_FILE_SIZE_MB}
+      - CHAT_ALLOWED_EXT=${CHAT_ALLOWED_EXT}
+      - CHAT_SESSION_TTL_SECONDS=${CHAT_SESSION_TTL_SECONDS}
+      - CHAT_DB_PATH=${CHAT_DB_PATH}
+      - IMAGE_SERVICE_URL=${IMAGE_SERVICE_URL}
+      - IMAGE_SERVICE_PUBLIC_BASE_URL=${IMAGE_SERVICE_PUBLIC_BASE_URL}
+      - IMAGE_SERVICE_STORAGE_DIR=${IMAGE_SERVICE_STORAGE_DIR}
+      - YC_FOLDER_ID=${YC_FOLDER_ID}
+      - YC_API_KEY=${YC_API_KEY}
+      - YC_API_KEY_ID=${YC_API_KEY_ID}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-
-      # CORS (только продакшн домены через HTTPS)
-      - CORS_ORIGINS_PRODUCTION=https://admin.news.rusmedical.ru,https://admin.news.rmevent.ru
-
-      # Bitrix (как на сервере)
-      - BITRIX_WEBHOOK_URL=https://your-bitrix.bitrix24.ru/rest/1/webhook/
-
-      # Окружение (как на сервере)
+      - RATE_LIMITING_ENABLED=${RATE_LIMITING_ENABLED}
+      - RATE_LIMIT_AUTH=${RATE_LIMIT_AUTH}
+      - RATE_LIMIT_PARSING=${RATE_LIMIT_PARSING}
+      - RATE_LIMIT_GENERATION=${RATE_LIMIT_GENERATION}
+      - RATE_LIMIT_CHAT=${RATE_LIMIT_CHAT}
+      - RATE_LIMIT_ADMIN=${RATE_LIMIT_ADMIN}
+      - RATE_LIMIT_DEFAULT=${RATE_LIMIT_DEFAULT}
       - TZ=Europe/Moscow
-      - DEBUG=false
-      - RELOAD=false
-      - ENVIRONMENT=production
-
     ports:
-      - "8001:8000"    # Основной FastAPI
-      - "8002:8020"    # Chat service (внутри backend)
-      - "8003:8010"    # Image service (внутри backend)
-
+      - "8000:8000"
+      - "8020:8020"
     volumes:
-      # Постоянные данные
       - ./logs:/app/logs
-      - ./backend/storage:/app/storage
-      - chat_data:/app/chat_service/data
-      - image_storage:/app/image_service/storage
-
-      # Синхронизация времени
+      - ./chat_history.db:/app/chat_service/chat_history.db
+      - ./image_storage:/app/image_service/storage
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-
     restart: unless-stopped
     networks:
       - medical-news-network
-
-    # Healthcheck для основного backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-
-    # Ожидаем готовности PostgreSQL на хосте
     depends_on:
       - db-health-check
 
-  # Frontend
+  # Frontend - образ из GHCR
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/dlutsok/medical-news-frontend:${TAG:-latest}
     container_name: medical-news-frontend
     environment:
       - NODE_ENV=production
-      # Используем nginx домен - все запросы идут через HTTPS
       - NEXT_PUBLIC_API_URL=https://admin.news.rmevent.ru
       - BACKEND_API_URL=http://backend:8000
       - TZ=Europe/Moscow
-
     ports:
       - "3000:3000"
-
     volumes:
-      # Синхронизация времени
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-
     depends_on:
       backend:
         condition: service_healthy
-
     restart: unless-stopped
     networks:
       - medical-news-network
-
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
@@ -106,20 +103,36 @@ services:
       retries: 3
       start_period: 30s
 
+  # Nginx - образ из GHCR
+  nginx:
+    image: ghcr.io/dlutsok/medical-news-nginx:${TAG:-latest}
+    container_name: medical-news-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx-logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - medical-news-network
+
   # Вспомогательный сервис для проверки доступности PostgreSQL
   db-health-check:
     image: postgres:16-alpine
     container_name: db-health-check
     environment:
-      - PGUSER=postgres
-      - PGPASSWORD=medical2024
-      - PGHOST=172.20.0.1
-      - PGPORT=5432
+      - PGUSER=${DATABASE_USER}
+      - PGPASSWORD=${DB_PASSWORD}
+      - PGHOST=${DATABASE_HOST}
+      - PGPORT=${DATABASE_PORT}
       - PGDATABASE=news_aggregator
     command: >
       sh -c "
-        echo 'Waiting for PostgreSQL at 172.20.0.1:5432...'
-        until pg_isready -h 172.20.0.1 -p 5432 -U postgres; do
+        echo 'Waiting for PostgreSQL at ${DATABASE_HOST}:${DATABASE_PORT}...'
+        until pg_isready -h ${DATABASE_HOST} -p ${DATABASE_PORT} -U ${DATABASE_USER}; do
           echo 'PostgreSQL is unavailable - sleeping'
           sleep 2
         done
@@ -130,17 +143,7 @@ services:
       - medical-news-network
     restart: "no"
 
-# Постоянные тома для данных
-volumes:
-  chat_data:
-    driver: local
-  image_storage:
-    driver: local
-
 # Сеть для взаимодействия сервисов
 networks:
   medical-news-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
