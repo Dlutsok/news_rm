@@ -1,0 +1,30 @@
+# Crontab для автоматических backup'ов PostgreSQL
+# Medical News Automation System
+#
+# Установка:
+# 1. Скопировать этот файл: cp crontab.example /tmp/medical_news_crontab
+# 2. Отредактировать пути в /tmp/medical_news_crontab
+# 3. Установить: crontab /tmp/medical_news_crontab
+# 4. Проверить: crontab -l
+
+# Переменные окружения для cron
+PATH=/usr/local/bin:/usr/bin:/bin
+SHELL=/bin/bash
+
+# Ежедневный backup в 02:00 (после парсинга новостей)
+0 2 * * * /opt/medical-news/scripts/backup/postgres_backup.sh daily >> /var/log/medical-news/backup_daily.log 2>&1
+
+# Еженедельный backup каждое воскресенье в 03:00
+0 3 * * 0 /opt/medical-news/scripts/backup/postgres_backup.sh weekly >> /var/log/medical-news/backup_weekly.log 2>&1
+
+# Ежемесячный backup 1 числа каждого месяца в 04:00
+0 4 1 * * /opt/medical-news/scripts/backup/postgres_backup.sh monthly >> /var/log/medical-news/backup_monthly.log 2>&1
+
+# Мониторинг backup'ов каждые 6 часов
+0 */6 * * * /opt/medical-news/scripts/backup/backup_monitor.py >> /var/log/medical-news/backup_monitor.log 2>&1
+
+# Ротация backup'ов каждую неделю в понедельник в 05:00
+0 5 * * 1 /opt/medical-news/scripts/backup/postgres_backup.sh rotate >> /var/log/medical-news/backup_rotate.log 2>&1
+
+# Проверка статистики backup'ов каждый день в 06:00
+0 6 * * * /opt/medical-news/scripts/backup/postgres_backup.sh stats >> /var/log/medical-news/backup_stats.log 2>&1

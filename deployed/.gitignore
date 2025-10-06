@@ -1,0 +1,7 @@
+# Игнорировать чувствительные данные
+.env
+frontend.env
+
+# Но сохранять примеры
+!.env.example
+!frontend.env.example

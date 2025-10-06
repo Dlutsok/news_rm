@@ -1,0 +1,506 @@
+/* Ensure Quill editor scrolls fully to bottom without clipping toolbar */
+.quill-editor .ql-container {
+  height: 100% !important;
+}
+.quill-editor .ql-editor {
+  height: 100% !important;
+  overflow-y: auto;
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* React Quill styles */
+@import 'react-quill/dist/quill.snow.css';
+
+/* Custom Quill styles */
+.ql-editor {
+  min-height: 280px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ql-toolbar {
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  background-color: #f8fafc;
+}
+
+.ql-container {
+  border-bottom: none !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+/* Дополнительные стили */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: 'Montserrat', sans-serif;
+  background-color: #f8fafc;
+}
+
+/* Утилиты для обрезки текста */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.line-clamp-3 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* Анимации загрузки */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Кастомные скроллбары */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Улучшенные фокусы */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+/* Кнопки */
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200;
+}
+
+.btn-secondary {
+  @apply bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200;
+}
+
+/* Карточки */
+.card {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200;
+}
+
+.card-header {
+  @apply px-6 py-4 border-b border-gray-200;
+}
+
+.card-body {
+  @apply p-6;
+}
+
+/* Статусы */
+.status-success {
+  @apply bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.status-error {
+  @apply bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.status-warning {
+  @apply bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.status-info {
+  @apply bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+/* Платформы */
+.platform-rmj {
+  @apply bg-red-50 border-red-200 text-red-800;
+}
+
+.platform-medportal {
+  @apply bg-blue-50 border-blue-200 text-blue-800;
+}
+
+.platform-vademecum {
+  @apply bg-green-50 border-green-200 text-green-800;
+}
+
+/* Адаптивный текст */
+.text-responsive {
+  @apply text-sm md:text-base;
+}
+
+/* Стили для медицинских статей */
+.medical-article {
+  font-family: 'Montserrat', sans-serif;
+  line-height: 1.7;
+  color: #374151;
+}
+
+.medical-article h2 {
+  @apply text-xl font-bold text-gray-900 mt-6 mb-4 border-b border-gray-200 pb-2;
+  font-size: 1.375rem;
+}
+
+.medical-article h3 {
+  @apply text-lg font-semibold text-gray-800 mt-5 mb-3;
+  font-size: 1.125rem;
+}
+
+.medical-article p {
+  @apply mb-4 text-gray-800 leading-relaxed;
+  margin-bottom: 1rem;
+  text-align: justify;
+}
+
+.medical-article ul,
+.medical-article ol {
+  @apply mb-4 pl-6;
+  margin-bottom: 1rem;
+}
+
+.medical-article li {
+  @apply mb-2 text-gray-800 leading-relaxed;
+  margin-bottom: 0.5rem;
+}
+
+.medical-article strong {
+  @apply font-semibold text-gray-900;
+  font-weight: 600;
+}
+
+.medical-article em {
+  @apply italic text-gray-700;
+  font-style: italic;
+}
+
+.medical-article blockquote {
+  @apply border-l-4 border-blue-500 pl-4 py-2 my-4 bg-blue-50 italic text-gray-700;
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  background-color: #eff6ff;
+}
+
+.medical-article ul li {
+  position: relative;
+  padding-left: 0.25rem;
+}
+
+.medical-article ul li::marker {
+  color: #6b7280;
+}
+
+.medical-article ol li::marker {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* Специальные стили для медицинского контента */
+.medical-article .fact-highlight {
+  @apply bg-yellow-50 border-l-4 border-yellow-400 p-3 my-3;
+}
+
+.medical-article .clinical-data {
+  @apply bg-blue-50 border border-blue-200 rounded-lg p-4 my-4;
+}
+
+/* Стили для статусных плашек новостей */
+.news-status-badge {
+  @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200;
+  animation: slideInDown 0.3s ease-out;
+}
+
+.news-status-badge--published {
+  @apply bg-green-100 text-green-800 border border-green-200;
+}
+
+.news-status-badge--scheduled {
+  @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+}
+
+.news-status-badge--draft {
+  @apply bg-orange-100 text-orange-800 border border-orange-200;
+}
+
+.news-status-details {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 bg-white/50 rounded text-xs;
+}
+
+/* Анимация появления плашек */
+@keyframes slideInDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover эффекты для плашек */
+.news-status-badge:hover {
+  @apply shadow-sm;
+  transform: translateY(-1px);
+}
+
+/* Адаптивные стили для мобильных устройств */
+/* Сохраняем десктоп версию для экранов больше 1200px */
+
+/* Мобильные устройства (до 640px) */
+@media (max-width: 639px) {
+  /* Контейнеры */
+  .max-w-7xl {
+    @apply px-3;
+  }
+
+  /* Заголовки и отступы */
+  h1 {
+    @apply text-lg;
+  }
+
+  h2 {
+    @apply text-base;
+  }
+
+  h3 {
+    @apply text-sm;
+  }
+
+  /* Кнопки более крупные для touch */
+  .btn-primary,
+  .btn-secondary {
+    @apply px-6 py-3 text-base min-h-[44px];
+  }
+
+  /* Карточки */
+  .card {
+    @apply shadow-none border-0 rounded-lg;
+  }
+
+  .card-body {
+    @apply p-4;
+  }
+
+  /* Модальные окна на всю ширину */
+  .modal-mobile {
+    @apply fixed inset-0 w-full h-full rounded-none;
+  }
+
+  /* Таблицы горизонтально скроллируемые */
+  .table-mobile {
+    @apply overflow-x-auto -mx-3;
+  }
+
+  .table-mobile table {
+    @apply min-w-full;
+  }
+
+  .table-mobile th,
+  .table-mobile td {
+    @apply px-3 py-2 text-sm whitespace-nowrap;
+  }
+
+  /* Грид адаптивный */
+  .grid-mobile {
+    @apply grid-cols-1 gap-3;
+  }
+
+  /* Скрытие на мобильных */
+  .hidden-mobile {
+    @apply hidden;
+  }
+
+  /* Полноширинные элементы */
+  .full-width-mobile {
+    @apply w-full;
+  }
+
+  /* Вертикальный стек кнопок */
+  .button-stack-mobile {
+    @apply flex-col space-y-2 space-x-0;
+  }
+}
+
+/* Планшеты (640px - 768px) */
+@media (min-width: 640px) and (max-width: 767px) {
+  .grid-tablet {
+    @apply grid-cols-2 gap-4;
+  }
+
+  .modal-tablet {
+    @apply max-w-lg mx-4;
+  }
+
+  .table-tablet th,
+  .table-tablet td {
+    @apply px-4 py-3 text-sm;
+  }
+}
+
+/* Средние экраны (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .grid-md {
+    @apply grid-cols-2 gap-4;
+  }
+
+  .modal-md {
+    @apply max-w-2xl mx-6;
+  }
+
+  .table-md th,
+  .table-md td {
+    @apply px-4 py-3;
+  }
+}
+
+/* Большие экраны (1024px - 1199px) */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .grid-lg {
+    @apply grid-cols-3 gap-4;
+  }
+
+  .modal-lg {
+    @apply max-w-3xl mx-8;
+  }
+}
+
+/* Десктоп (1200px и выше) - не трогаем */
+@media (min-width: 1200px) {
+  /* Здесь ничего не меняем - оставляем как есть */
+}
+
+/* Утилиты для адаптивности */
+.responsive-text {
+  @apply text-xs sm:text-sm md:text-base;
+}
+
+.responsive-padding {
+  @apply p-3 sm:p-4 md:p-6;
+}
+
+.responsive-margin {
+  @apply m-3 sm:m-4 md:m-6;
+}
+
+.responsive-grid {
+  @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
+}
+
+/* Touch-friendly элементы */
+.touch-target {
+  @apply min-h-[44px] min-w-[44px];
+}
+
+.touch-button {
+  @apply px-6 py-3 text-base font-medium touch-target;
+}
+
+/* Адаптивные модальные окна */
+.modal-adaptive {
+  @apply fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4;
+}
+
+.modal-content-adaptive {
+  @apply bg-white rounded-xl sm:rounded-2xl w-full shadow-2xl border border-gray-100 overflow-hidden;
+  max-height: 95vh;
+}
+
+@media (min-width: 640px) {
+  .modal-content-adaptive {
+    max-height: 90vh;
+    max-width: 28rem; /* 448px */
+  }
+}
+
+@media (min-width: 768px) {
+  .modal-content-adaptive {
+    max-width: 32rem; /* 512px */
+  }
+}
+
+@media (min-width: 1024px) {
+  .modal-content-adaptive {
+    max-width: 42rem; /* 672px */
+  }
+}
+
+@media (min-width: 1280px) {
+  .modal-content-adaptive {
+    max-width: 56rem; /* 896px */
+  }
+}
+
+/* Кнопка закрытия модального окна */
+.modal-close-btn {
+  @apply w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all duration-200 shadow-md hover:shadow-lg touch-target;
+}
+
+/* Улучшенные hover эффекты только для не-touch устройств */
+@media (hover: hover) and (pointer: fine) {
+  .hover-only:hover {
+    @apply transform scale-105 shadow-lg;
+  }
+}
+
+/* Скрытие hover эффектов на touch устройствах */
+@media (hover: none) and (pointer: coarse) {
+  .hover-only:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* Темная тема (заготовка) */
+@media (prefers-color-scheme: dark) {
+  /* Здесь будут стили для темной темы */
+}
+

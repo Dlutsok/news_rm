@@ -1,0 +1,166 @@
+name: Repository Structure Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  structure-check:
+    runs-on: ubuntu-latest
+    name: Check Repository Structure
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify top-level directory structure
+        run: |
+          echo "🏗️  Checking top-level directory structure..."
+
+          # Разрешенные директории в корне
+          ALLOWED_DIRS="backend frontend scripts docs .github .claude"
+
+          # Поиск неразрешенных директорий
+          DISALLOWED=""
+          for dir in */; do
+            if [ -d "$dir" ]; then
+              dirname=$(basename "$dir")
+              if ! echo "$ALLOWED_DIRS" | grep -q "$dirname"; then
+                DISALLOWED="$DISALLOWED $dirname"
+              fi
+            fi
+          done
+
+          if [ -n "$DISALLOWED" ]; then
+            echo "::error::Disallowed top-level directories found: $DISALLOWED"
+            echo "::error::Allowed directories: $ALLOWED_DIRS"
+            exit 1
+          fi
+
+          echo "✅ Top-level structure is valid"
+
+      - name: Check for deep relative imports in frontend
+        run: |
+          echo "🔍 Checking for deep relative imports in frontend..."
+
+          if find frontend -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | \
+             xargs grep -l "\.\./\.\./\.\." 2>/dev/null; then
+            echo "::error::Deep relative imports (../../..) found in frontend"
+            echo "::error::Please use path aliases instead (@components, @utils, etc.)"
+            exit 1
+          fi
+
+          echo "✅ No deep relative imports found"
+
+      - name: Check for relative imports that should use aliases
+        run: |
+          echo "🎯 Checking for imports that should use aliases..."
+
+          # Проверяем импорты, которые должны использовать алиасы
+          VIOLATIONS=""
+
+          # Проверка utils
+          if find frontend -name "*.js" -o -name "*.jsx" | \
+             xargs grep -l "from ['\"]\.\..*utils/" 2>/dev/null; then
+            VIOLATIONS="$VIOLATIONS utils"
+          fi
+
+          # Проверка components
+          if find frontend -name "*.js" -o -name "*.jsx" | \
+             xargs grep -l "from ['\"]\.\..*components/" 2>/dev/null; then
+            VIOLATIONS="$VIOLATIONS components"
+          fi
+
+          # Проверка contexts
+          if find frontend -name "*.js" -o -name "*.jsx" | \
+             xargs grep -l "from ['\"]\.\..*contexts/" 2>/dev/null; then
+            VIOLATIONS="$VIOLATIONS contexts"
+          fi
+
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::warning::Found relative imports that should use aliases for: $VIOLATIONS"
+            echo "::warning::Run: node scripts/migration/fix_frontend_imports.js"
+            # Не фейлим, только предупреждаем на этом этапе
+          fi
+
+          echo "✅ Import structure checked"
+
+      - name: Verify required configuration files
+        run: |
+          echo "📋 Checking required configuration files..."
+
+          # Проверяем jsconfig.json для алиасов
+          if [ ! -f "frontend/jsconfig.json" ]; then
+            echo "::error::frontend/jsconfig.json is missing"
+            exit 1
+          fi
+
+          # Проверяем что в jsconfig есть алиасы
+          if ! grep -q "@components" "frontend/jsconfig.json"; then
+            echo "::error::frontend/jsconfig.json missing path aliases"
+            exit 1
+          fi
+
+          echo "✅ Required configuration files present"
+
+      - name: Check backend import structure
+        run: |
+          echo "🐍 Checking backend import structure..."
+
+          # Проверяем что нет относительных импортов в backend
+          if find backend -name "*.py" | \
+             xargs grep -l "from \.\.\." 2>/dev/null; then
+            echo "::warning::Deep relative imports found in backend"
+            echo "::warning::Consider using absolute imports from backend root"
+          fi
+
+          echo "✅ Backend structure checked"
+
+  lint-check:
+    runs-on: ubuntu-latest
+    name: Lint and Format Check
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run ESLint
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Check Python imports (if ruff available)
+        run: |
+          # Опциональная проверка, если в проекте используется ruff
+          if command -v ruff >/dev/null 2>&1; then
+            cd backend
+            ruff check --select I .
+          else
+            echo "⚠️  ruff not available, skipping Python import checks"
+          fi

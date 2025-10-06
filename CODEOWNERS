@@ -1,0 +1,41 @@
+# Global owners - требуют approval для всех изменений в критичных файлах
+* @team-leads
+
+# Backend ownership
+/backend/ @backend-team
+/backend/api/ @backend-team @api-team
+/backend/database/ @backend-team @db-team
+/backend/services/ @backend-team
+/backend/core/ @backend-team @devops-team
+
+# Frontend ownership
+/frontend/ @frontend-team
+/frontend/components/ @frontend-team @ui-team
+/frontend/pages/ @frontend-team
+/frontend/utils/ @frontend-team
+/frontend/contexts/ @frontend-team
+
+# Infrastructure and configuration
+/.github/ @devops-team
+/scripts/ @devops-team @backend-team
+/docs/ @tech-writers @team-leads
+
+# Configuration files - require multiple approvals
+package.json @frontend-team @devops-team
+requirements.txt @backend-team @devops-team
+*.config.js @frontend-team @devops-team
+*.config.json @frontend-team @devops-team
+jsconfig.json @frontend-team
+
+# Database and migrations
+/backend/database/migrations/ @db-team @backend-team
+alembic.ini @db-team @backend-team
+
+# Security sensitive files
+/backend/core/config.py @security-team @backend-team
+/backend/middleware/ @security-team @backend-team
+
+# Documentation
+/docs/architecture/ @team-leads @tech-writers
+/docs/adr/ @team-leads
+README.md @tech-writers @team-leads

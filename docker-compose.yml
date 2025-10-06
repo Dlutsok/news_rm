@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # Backend объединяет FastAPI + chat + image сервисы
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: medical-news-backend
+    environment:
+      # База данных (загружается из .env файла)
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_HOST=${DATABASE_HOST:-172.20.0.1}
+      - DATABASE_PORT=${DATABASE_PORT:-5432}
+      - DATABASE_USER=${DATABASE_USER:-postgres}
+
+      # Секретные ключи (загружаются из .env файла)
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+
+      # OpenAI настройки (загружаются из .env файла)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_PROXY_URL=${OPENAI_PROXY_URL}
+
+      # Telegram (загружаются из .env файла)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+
+      # CORS (только продакшн домены через HTTPS)
+      - CORS_ORIGINS_PRODUCTION=https://admin.news.rusmedical.ru,https://admin.news.rmevent.ru
+
+      # Bitrix (как на сервере)
+      - BITRIX_WEBHOOK_URL=https://your-bitrix.bitrix24.ru/rest/1/webhook/
+
+      # Окружение (как на сервере)
+      - TZ=Europe/Moscow
+      - DEBUG=false
+      - RELOAD=false
+      - ENVIRONMENT=production
+
+    ports:
+      - "8001:8000"    # Основной FastAPI
+      - "8002:8020"    # Chat service (внутри backend)
+      - "8003:8010"    # Image service (внутри backend)
+
+    volumes:
+      # Постоянные данные
+      - ./logs:/app/logs
+      - ./backend/storage:/app/storage
+      - chat_data:/app/chat_service/data
+      - image_storage:/app/image_service/storage
+
+      # Синхронизация времени
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+    restart: unless-stopped
+    networks:
+      - medical-news-network
+
+    # Healthcheck для основного backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # Ожидаем готовности PostgreSQL на хосте
+    depends_on:
+      - db-health-check
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: medical-news-frontend
+    environment:
+      - NODE_ENV=production
+      # Используем nginx домен - все запросы идут через HTTPS
+      - NEXT_PUBLIC_API_URL=https://admin.news.rmevent.ru
+      - BACKEND_API_URL=http://backend:8000
+      - TZ=Europe/Moscow
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      # Синхронизация времени
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    restart: unless-stopped
+    networks:
+      - medical-news-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Вспомогательный сервис для проверки доступности PostgreSQL
+  db-health-check:
+    image: postgres:16-alpine
+    container_name: db-health-check
+    environment:
+      - PGUSER=postgres
+      - PGPASSWORD=medical2024
+      - PGHOST=172.20.0.1
+      - PGPORT=5432
+      - PGDATABASE=news_aggregator
+    command: >
+      sh -c "
+        echo 'Waiting for PostgreSQL at 172.20.0.1:5432...'
+        until pg_isready -h 172.20.0.1 -p 5432 -U postgres; do
+          echo 'PostgreSQL is unavailable - sleeping'
+          sleep 2
+        done
+        echo 'PostgreSQL is ready!'
+        sleep infinity
+      "
+    networks:
+      - medical-news-network
+    restart: "no"
+
+# Постоянные тома для данных
+volumes:
+  chat_data:
+    driver: local
+  image_storage:
+    driver: local
+
+# Сеть для взаимодействия сервисов
+networks:
+  medical-news-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
