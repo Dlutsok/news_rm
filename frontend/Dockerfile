@@ -32,6 +32,9 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # Собираем приложение
 RUN npm run build
 
+# Проверяем что public скопировался
+RUN ls -la /app/public || echo "Public folder not found in builder!"
+
 # ============================
 # STAGE 3: Runner (финальный образ)
 # ============================
@@ -49,8 +52,8 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Копируем public файлы напрямую из исходников (standalone не включает их)
-COPY --chown=nextjs:nodejs ./public ./public
+# Копируем public файлы из builder stage
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
