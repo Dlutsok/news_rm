@@ -45,7 +45,7 @@ RUN apk add --no-cache curl
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Копируем только необходимые файлы для runtime
+# Копируем public файлы (favicon, robots.txt и т.д.)
 COPY --from=builder /app/public ./public
 
 # Копируем standalone сборку
