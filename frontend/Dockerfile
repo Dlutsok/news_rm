@@ -26,14 +26,14 @@ COPY --from=deps /app/node_modules ./node_modules
 # Копируем исходный код
 COPY . .
 
+# Явно копируем папку public (на случай если она не включилась в COPY . .)
+COPY public ./public
+
 # Настройка для standalone сборки
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Собираем приложение
 RUN npm run build
-
-# Проверяем что public скопировался
-RUN ls -la /app/public || echo "Public folder not found in builder!"
 
 # ============================
 # STAGE 3: Runner (финальный образ)
