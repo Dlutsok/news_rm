@@ -23,17 +23,17 @@ WORKDIR /app
 # Копируем зависимости из предыдущего stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Копируем исходный код из frontend/
+# Копируем исходный код из frontend/ (включая public)
 COPY frontend/ .
-
-# Убеждаемся что public есть (теперь context - корень репо)
-COPY frontend/public ./public
 
 # Настройка для standalone сборки
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Собираем приложение
 RUN npm run build
+
+# Проверяем что public скопировался
+RUN ls -la /app/ && ls -la /app/public
 
 # ============================
 # STAGE 3: Runner (финальный образ)
