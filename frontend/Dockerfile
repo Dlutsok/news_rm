@@ -45,12 +45,12 @@ RUN apk add --no-cache curl
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Копируем public файлы (favicon, robots.txt и т.д.)
-COPY --from=builder /app/public ./public
-
 # Копируем standalone сборку
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Копируем public файлы напрямую из исходников (standalone не включает их)
+COPY --chown=nextjs:nodejs ./public ./public
 
 USER nextjs
 
