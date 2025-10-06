@@ -29,6 +29,10 @@ COPY frontend/ .
 # Настройка для standalone сборки
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Build-time аргументы для встраивания в код
+ARG NEXT_PUBLIC_API_URL=https://admin.news.rmevent.ru
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Собираем приложение
 RUN npm run build
 
