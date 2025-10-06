@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/expenses", tags=["Expenses"])
+router = APIRouter(tags=["Expenses"])
 
 
 # Словари для человекочитаемых названий
