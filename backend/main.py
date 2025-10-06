@@ -130,13 +130,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"❌ Failed to start news parsing scheduler: {e}")
         
-        # Запускаем планировщик автопубликации (каждую минуту)
-        try:
-            from services.scheduler import start_publication_scheduler
-            app.state.publication_scheduler_task = asyncio.create_task(start_publication_scheduler())
-            print("✅ Publication scheduler started (every minute)")
-        except Exception as e:
-            logger.error(f"❌ Failed to start publication scheduler: {e}")
+        # Планировщик автопубликации отключён - используется внешний cron
+        # try:
+        #     from services.scheduler import start_publication_scheduler
+        #     app.state.publication_scheduler_task = asyncio.create_task(start_publication_scheduler())
+        #     print("✅ Publication scheduler started (every minute)")
+        # except Exception as e:
+        #     logger.error(f"❌ Failed to start publication scheduler: {e}")
+        print("ℹ️  Publication scheduler disabled (using external cron)")
     except Exception as e:
         logger.error(f"❌ Failed to initialize database: {e}")
         raise
@@ -158,17 +159,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error stopping news parsing scheduler: {e}")
     
-    # Останавливаем планировщик публикации
-    try:
-        task = getattr(app.state, "publication_scheduler_task", None)
-        if task:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-    except Exception as e:
-        logger.error(f"Error stopping publication scheduler: {e}")
+    # Планировщик публикации отключён (используется внешний cron)
+    # try:
+    #     task = getattr(app.state, "publication_scheduler_task", None)
+    #     if task:
+    #         task.cancel()
+    #         try:
+    #             await task
+    #         except asyncio.CancelledError:
+    #             pass
+    # except Exception as e:
+    #     logger.error(f"Error stopping publication scheduler: {e}")
     # Закрываем все парсеры
     try:
         manager = NewsParserManager()

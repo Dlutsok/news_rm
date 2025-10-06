@@ -1,0 +1,13 @@
+[Unit]
+Description=Medical News Auto Publisher
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/root/scripts/cron_publish_news.sh
+StandardOutput=append:/root/logs/publication_cron.log
+StandardError=append:/root/logs/publication_cron.log
+
+[Install]
+WantedBy=multi-user.target

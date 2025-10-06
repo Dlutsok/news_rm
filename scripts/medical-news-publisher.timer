@@ -1,0 +1,13 @@
+[Unit]
+Description=Medical News Auto Publisher Timer
+Requires=docker.service
+After=docker.service
+
+[Timer]
+# Запускать каждую минуту
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
