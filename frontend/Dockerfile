@@ -10,8 +10,8 @@ FROM node:18-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Копируем только package files
-COPY package*.json ./
+# Копируем только package files (теперь из frontend/)
+COPY frontend/package*.json ./
 RUN npm ci
 
 # ============================
@@ -23,11 +23,11 @@ WORKDIR /app
 # Копируем зависимости из предыдущего stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Копируем исходный код
-COPY . .
+# Копируем исходный код из frontend/
+COPY frontend/ .
 
-# Явно копируем папку public (на случай если она не включилась в COPY . .)
-COPY public ./public
+# Убеждаемся что public есть (теперь context - корень репо)
+COPY frontend/public ./public
 
 # Настройка для standalone сборки
 ENV NEXT_TELEMETRY_DISABLED 1
