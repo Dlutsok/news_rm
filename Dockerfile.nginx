@@ -1,7 +1,7 @@
 FROM nginx:alpine
 
-# Копируем конфигурацию nginx
-COPY nginx-server.conf /etc/nginx/conf.d/default.conf
+# Копируем полную конфигурацию nginx (это главный nginx.conf, а не site config)
+COPY nginx-server.conf /etc/nginx/nginx.conf
 
 # Создаем директорию для логов
 RUN mkdir -p /var/log/nginx
