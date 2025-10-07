@@ -81,7 +81,17 @@ class ApiClient {
       }
 
       if (!response.ok) {
-        throw new Error(data?.detail || `HTTP error! status: ${response.status}`);
+        // Логируем детали ошибки для отладки
+        console.error('API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          endpoint: endpoint,
+          data: data
+        })
+
+        // Формируем понятное сообщение об ошибке
+        const errorMessage = data?.detail || data?.message || `HTTP ${response.status}: ${response.statusText}`
+        throw new Error(errorMessage);
       }
 
       return data;
@@ -96,22 +106,43 @@ class ApiClient {
 
   // Auth endpoints
   async login(username, password) {
-    // Используем универсальный метод request для единообразия
-    const data = await this.request('/api/auth/login', {
+    // Используем Next.js API роут для установки HttpOnly cookie
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ username, password }),
+      credentials: 'include', // Важно для работы с cookies
     });
 
-    // Сохраняем токен в localStorage
-    if (data.access_token) {
-      this.setToken(data.access_token);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Login failed');
     }
 
+    const data = await response.json();
+    
+    // Токен теперь в HttpOnly cookie, не сохраняем в localStorage
     return data;
   }
 
   async getCurrentUser() {
-    return await this.request('/api/auth/me');
+    // Используем прямой API роут для получения текущего пользователя
+    const response = await fetch('/api/auth/me', {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Unauthorized');
+      }
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to get current user');
+    }
+
+    return await response.json();
   }
 
   async verifyToken() {
@@ -199,6 +230,52 @@ class ApiClient {
   // Health check
   async healthCheck() {
     return await this.request('/api/health');
+  }
+
+  /**
+   * Получить список платформ
+   */
+  async getPlatforms() {
+    return await this.request('/api/admin/platforms');
+  }
+
+  /**
+   * Распарсить статью из URL
+   */
+  async parseURLArticle(url) {
+    return await this.request('/api/url-articles/parse', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: url,
+        project: 'therapy.school' // ProjectType.THERAPY enum value
+      })
+    });
+  }
+
+  /**
+   * Сгенерировать статью из URL (полный цикл: парсинг + генерация + изображение)
+   * @param {string} url - URL статьи
+   * @param {string} project - Название проекта (gynecology.school, therapy.school, pediatrics.school)
+   * @param {boolean} generateImage - Генерировать ли изображение (по умолчанию true)
+   * @param {object} formattingOptions - Опции форматирования статьи (опционально)
+   * @returns {Promise} - Результат генерации с draft_id и данными статьи
+   */
+  async generateFromURL(url, project, generateImage = true, formattingOptions = null) {
+    const payload = {
+      url: url,
+      project: project,
+      generate_image: generateImage
+    }
+
+    // Добавляем formatting_options только если они заданы
+    if (formattingOptions) {
+      payload.formatting_options = formattingOptions
+    }
+
+    return await this.request('/api/url-articles/generate-from-url', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
   }
 }
 

@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const API_BASE_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
+    const API_BASE_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     const token = req.cookies?.auth_token
     if (!token) {
       return res.status(401).json({ error: 'Unauthorized' })

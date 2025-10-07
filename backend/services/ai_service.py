@@ -686,6 +686,368 @@ class AIService:
                 fallback = f"{fallback}\n— {article_url}"
             return fallback, metrics
 
+    async def clean_article_content(self, raw_content: str, source_url: str) -> Tuple[str, Dict]:
+        """
+        Очистка статьи от навигации, рекламы, футеров через GPT-4o mini
+
+        Args:
+            raw_content: Сырой контент после парсинга (Jina AI / trafilatura)
+            source_url: URL источника для контекста
+
+        Returns:
+            Tuple[str, Dict]: Очищенный контент и метрики
+        """
+        start_time = time.time()
+
+        system_prompt = """Ты — эксперт по очистке текста статей от служебной информации.
+
+🎯 ЗАДАЧА: Извлечь ТОЛЬКО основной контент статьи, удалив всё лишнее.
+
+❌ УДАЛИ:
+• Навигационные меню (Главная, О нас, Контакты и т.д.)
+• Футеры и копирайты (© 2024, Все права защищены)
+• Рекламные блоки и баннеры
+• Ссылки на социальные сети (VK, Telegram, Facebook и т.д.)
+• Формы подписки и призывы подписаться
+• Блоки "Читайте также", "Похожие статьи"
+• Служебную информацию (дата публикации отдельной строкой, автор отдельной строкой)
+• Email-адреса и телефоны (если они не часть основного текста)
+• Повторяющиеся элементы навигации
+
+✅ СОХРАНИ:
+• Заголовок статьи (один главный H1)
+• Весь основной текст статьи
+• Подзаголовки (H2, H3)
+• Списки, таблицы, цитаты (если они часть статьи)
+• Медицинские термины, названия, даты и цифры из текста
+• Ссылки на источники ВНУТРИ текста статьи
+
+📝 ФОРМАТ ВЫВОДА:
+Верни очищенный текст в markdown формате. Структура:
+
+# Заголовок статьи
+
+Основной текст...
+
+## Подзаголовок 1
+
+Текст раздела...
+
+⚠️ ВАЖНО:
+- Не добавляй ничего от себя
+- Не изменяй факты и формулировки
+- Просто убери всё лишнее и оставь чистую статью
+- Если сомневаешься — лучше оставь (например, если не уверен, что это реклама)"""
+
+        user_prompt = f"""Очисти эту статью от навигации, рекламы и служебной информации.
+
+Источник: {source_url}
+
+Исходный текст:
+{raw_content}
+
+Верни только очищенный контент в markdown."""
+
+        try:
+            response = await self.provider.chat_completion(
+                model="gpt-4o-mini",  # Быстро и дёшево
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.1,  # Низкая температура для точности
+                max_tokens=8000
+            )
+
+            cleaned_content = response.choices[0].message.content.strip()
+
+            processing_time = time.time() - start_time
+
+            metrics = {
+                "model_used": "gpt-4o-mini",
+                "tokens_used": response.usage.total_tokens,
+                "processing_time_seconds": processing_time,
+                "input_length": len(raw_content),
+                "output_length": len(cleaned_content),
+                "reduction_percent": round((1 - len(cleaned_content) / len(raw_content)) * 100, 1) if len(raw_content) > 0 else 0
+            }
+
+            logger.info(f"Article cleaned via GPT-4o mini: {metrics['reduction_percent']}% reduction, {metrics['tokens_used']} tokens, {processing_time:.2f}s")
+
+            return cleaned_content, metrics
+
+        except Exception as e:
+            logger.error(f"Error cleaning article via GPT: {e}")
+            # Fallback: возвращаем оригинальный контент
+            metrics = {
+                "model_used": "gpt-4o-mini",
+                "tokens_used": 0,
+                "processing_time_seconds": time.time() - start_time,
+                "error": str(e),
+                "fallback": True
+            }
+            return raw_content, metrics
+
+    async def generate_article_from_external_content(
+        self,
+        external_content: str,
+        source_url: str,
+        source_domain: str,
+        project: ProjectType,
+        formatting_options=None
+    ) -> Tuple[GeneratedArticle, Dict]:
+        """
+        Генерация медицинской статьи из внешнего контента (URL)
+
+        Args:
+            external_content: Контент статьи (markdown из Jina AI)
+            source_url: URL источника
+            source_domain: Домен источника
+            project: Тип проекта для адаптации
+            formatting_options: Опции форматирования (опционально)
+
+        Returns:
+            Tuple[GeneratedArticle, Dict]: Сгенерированная статья и метрики
+        """
+        start_time = time.time()
+
+        # Определяем специализацию для проекта
+        project_info = {
+            ProjectType.GYNECOLOGY: {
+                "specialization": "гинекологии и женского здоровья",
+                "audience": "акушеров-гинекологов, репродуктологов",
+                "focus": "репродуктивное здоровье, гормональные аспекты, онкогинекология"
+            },
+            ProjectType.THERAPY: {
+                "specialization": "терапии и общей медицины",
+                "audience": "терапевтов, врачей общей практики",
+                "focus": "внутренние болезни, диагностика, коморбидность"
+            },
+            ProjectType.PEDIATRICS: {
+                "specialization": "педиатрии и детского здоровья",
+                "audience": "педиатров, неонатологов",
+                "focus": "детское здоровье, возрастные особенности, вакцинация"
+            }
+        }
+
+        info = project_info.get(project, project_info[ProjectType.THERAPY])
+
+        # Читаем настройки длины статьи
+        try:
+            min_length_setting = settings_service.get_app_setting("article_min_length")
+            min_length = int(min_length_setting.setting_value) if min_length_setting and min_length_setting.setting_value else 2500
+
+            max_length_setting = settings_service.get_app_setting("article_max_length")
+            max_length = int(max_length_setting.setting_value) if max_length_setting and max_length_setting.setting_value else 4000
+        except Exception:
+            min_length = 2500
+            max_length = 4000
+
+        system_prompt = f"""Ты — опытный медицинский журналист, специализирующийся на {info['specialization']}.
+Твоя задача — адаптировать статью из внешнего источника для медицинского портала, ориентированного на {info['audience']}.
+
+🎯 ГЛАВНАЯ ЗАДАЧА:
+Создать УНИКАЛЬНУЮ, профессиональную медицинскую статью на основе внешнего материала.
+Фокус: {info['focus']}
+
+🔄 ПРИНЦИПЫ АДАПТАЦИИ:
+
+1️⃣ **АНАЛИЗИРУЙ И АДАПТИРУЙ**:
+- Извлеки ключевую медицинскую информацию из источника
+- Дополни профессиональным медицинским контекстом
+- Адаптируй под целевую аудиторию — {info['audience']}
+- НЕ копируй текст, а переработай в уникальный материал
+
+2️⃣ **СТРУКТУРА**:
+- Создай органичную структуру под контент
+- Используй профессиональные медицинские заголовки
+- Логичное развитие темы от введения к выводам
+
+3️⃣ **МЕДИЦИНСКАЯ ЭКСПЕРТИЗА**:
+- Дополни медицинской терминологией и контекстом
+- Укажи механизмы, патогенез, этиологию где уместно
+- Добавь клиническую значимость для целевой специальности
+- Используй профессиональные сокращения: МКБ-10, ЭКГ, МРТ и т.д.
+
+4️⃣ **ФОРМАТИРОВАНИЕ**:
+- Используй HTML теги: <p>, <h2>, <h3>, <strong>, <em>, <ul>, <li>, <blockquote>
+- ОБЯЗАТЕЛЬНО: один <br> ДО и ПОСЛЕ каждого заголовка
+- Выделяй ключевые термины и цифры через <strong>
+- Названия исследований, журналов — через <em>
+
+5️⃣ **SEO ОПТИМИЗАЦИЯ**:
+- seo_title: до 60 символов, медицинский контекст
+- seo_description: до 160 символов, ключевая суть
+- seo_keywords: 5-7 релевантных медицинских терминов
+
+6️⃣ **ИЗОБРАЖЕНИЕ**:
+- Создай детальный промпт НА РУССКОМ для реалистичного медицинского изображения
+- Фокус на оборудовании, процессах, лабораториях, а не на врачах
+- Примеры: "Современная лаборатория с микроскопами", "Аппарат МРТ в клинике", "Научное исследование ДНК"
+
+📏 ТРЕБОВАНИЯ К ОБЪЕМУ:
+- Примерная длина: {min_length+500} символов ЧИСТОГО ТЕКСТА (без HTML)
+- Диапазон: {min_length}-{max_length} символов
+- Главное — качественное раскрытие темы!
+
+⚠️ ВАЖНО:
+- Создавай УНИКАЛЬНЫЙ контент, а не копируй источник
+- Адаптируй под профессиональную медицинскую аудиторию
+- Дополняй медицинским контекстом и экспертизой
+- Указывай источник: "По данным {source_domain}..."
+
+Верни результат СТРОГО в JSON, без комментариев:
+{{
+  "news_text": "Профессиональная HTML-статья примерно {min_length+500} символов чистого текста",
+  "seo_title": "SEO заголовок до 60 символов",
+  "seo_description": "SEO описание до 160 символов",
+  "seo_keywords": ["ключевое_слово_1", "ключевое_слово_2", "ключевое_слово_3"],
+  "image_prompt": "Детальное описание медицинской сцены на русском языке",
+  "image_url": "https://example.com/image.jpg"
+}}"""
+
+        user_prompt = f"""ИСТОЧНИК: {source_url} ({source_domain})
+
+КОНТЕНТ ДЛЯ АДАПТАЦИИ:
+{external_content[:8000]}
+
+🎯 ЗАДАЧА:
+Создай профессиональную медицинскую статью для проекта {project.value}, адаптировав этот материал для {info['audience']}.
+
+⚠️ ВАЖНО:
+1. Создай УНИКАЛЬНЫЙ контент — не копируй, а переработай
+2. Дополни медицинским контекстом и профессиональной экспертизой
+3. Адаптируй под фокус: {info['focus']}
+4. Добавь <br> ДО и ПОСЛЕ каждого заголовка
+5. Примерный объем: {min_length+500} символов чистого текста
+
+💡 Упоминай источник где уместно: "По данным {source_domain}...", "Исследование, опубликованное на {source_domain}..." и т.д."""
+
+        # Добавляем инструкции форматирования если заданы
+        if formatting_options:
+            formatting_instructions = self._build_formatting_instructions(formatting_options)
+            system_prompt += f"\n\n🎛️ ДОПОЛНИТЕЛЬНЫЕ ТРЕБОВАНИЯ К ФОРМАТИРОВАНИЮ:\n{formatting_instructions}"
+
+        try:
+            # Читаем модель из настроек
+            try:
+                gen_model_setting = settings_service.get_app_setting("openai_generation_model")
+                model_name = gen_model_setting.setting_value if gen_model_setting and gen_model_setting.setting_value else "gpt-4o"
+
+                temperature_setting = settings_service.get_app_setting("openai_temperature")
+                temperature_value = float(temperature_setting.setting_value) if temperature_setting and temperature_setting.setting_value else 0.6
+
+                max_tokens_setting = settings_service.get_app_setting("openai_max_tokens")
+                max_tokens_value = int(max_tokens_setting.setting_value) if max_tokens_setting and max_tokens_setting.setting_value else 8000
+            except Exception:
+                model_name = "gpt-4o"
+                temperature_value = 0.6
+                max_tokens_value = 8000
+
+            # Модели-кандидаты с фолбэками
+            preferred_order = [model_name, "gpt-4o-mini", "gpt-4o", "gpt-4", "gpt-3.5-turbo-16k"]
+            seen = set()
+            candidates = []
+            for m in preferred_order:
+                if m and m not in seen:
+                    seen.add(m)
+                    candidates.append(m)
+
+            last_error = None
+            used_model = model_name
+            response = None
+            for candidate in candidates:
+                try:
+                    response = await self.provider.get_completion(
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        model=candidate,
+                        temperature=temperature_value,
+                        max_tokens=max_tokens_value,
+                        frequency_penalty=0.3,
+                        presence_penalty=0.3
+                    )
+                    used_model = candidate
+                    break
+                except Exception as e:
+                    last_error = e
+                    err_msg = str(e).lower()
+                    if "model_not_found" in err_msg or "404" in err_msg:
+                        continue
+                    raise
+
+            if response is None:
+                raise last_error or Exception("No available model for URL article generation")
+
+            # Парсим JSON ответ
+            content = response["content"].strip()
+
+            if content.startswith("```json"):
+                content = content[7:-3].strip()
+            elif content.startswith("```"):
+                content = content[3:-3].strip()
+
+            result_data = json.loads(content)
+
+            # Генерируем изображение
+            image_url = await self._generate_image(result_data["image_prompt"])
+            result_data["image_url"] = image_url
+
+            # Проверяем длину
+            clean_text = re.sub(r'<[^>]*>', '', result_data["news_text"])
+            clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+            text_length = len(clean_text)
+
+            # Создаем объект
+            article = GeneratedArticle(
+                news_text=result_data["news_text"],
+                seo_title=result_data["seo_title"],
+                seo_description=result_data["seo_description"],
+                seo_keywords=result_data["seo_keywords"],
+                image_prompt=result_data["image_prompt"],
+                image_url=result_data["image_url"]
+            )
+
+            # Метрики
+            processing_time = time.time() - start_time
+            target_length = formatting_options.target_length if formatting_options else min_length
+            metrics = {
+                "model_used": used_model,
+                "tokens_used": response.get("usage", {}).get("total_tokens", 0),
+                "processing_time_seconds": processing_time,
+                "success": True,
+                "text_length_clean": text_length,
+                "text_length_html": len(result_data["news_text"]),
+                "target_length": target_length,
+                "source_url": source_url,
+                "source_domain": source_domain
+            }
+
+            logger.info(f"Article generated from URL {source_url}: {text_length} clean characters. Tokens: {response.get('usage', {}).get('total_tokens', 0)}, Time: {processing_time:.2f}s")
+
+            return article, metrics
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {e}")
+            logger.error(f"Response content: {content}")
+            raise Exception(f"Ошибка парсинга ответа AI: {str(e)}")
+
+        except Exception as e:
+            processing_time = time.time() - start_time
+            logger.error(f"Error in generate_article_from_external_content: {e}")
+
+            metrics = {
+                "model_used": model_name,
+                "tokens_used": 0,
+                "processing_time_seconds": processing_time,
+                "success": False,
+                "error": str(e)
+            }
+
+            raise Exception(f"Ошибка при генерации статьи из URL: {str(e)}")
+
     async def generate_full_article(self, summary: str, facts: List[str], project: ProjectType, original_title: str, formatting_options=None) -> Tuple[GeneratedArticle, Dict]:
         """
         Генерация подробной НОВОСТИ (2500-4000 символов) с SEO

@@ -19,3 +19,4 @@ python-docx
 psutil
 yandex-cloud-ml-sdk==0.2.0
 aiofiles
+trafilatura>=1.12.0

@@ -17,6 +17,8 @@ import {
 } from 'react-icons/hi2'
 import { LuLoader2 } from 'react-icons/lu'
 import FoundNews from '@components/FoundNews'
+import URLNewsInput from '@components/URLNewsInput'
+import URLArticleCard from '@components/URLArticleCard'
 import ProtectedRoute from '@components/ProtectedRoute'
 import apiClient from '@utils/api'
 import Card from '@components/ui/Card'
@@ -31,6 +33,55 @@ function MonitoringContent() {
   const { isAdmin } = useAuth()
   const [systemHealth, setSystemHealth] = useState(null)
   const [isMonitoringExpanded, setIsMonitoringExpanded] = useState(false)
+
+  // Источник новостей: 'found' или 'url'
+  const [newsSource, setNewsSource] = useState('found')
+  const [urlArticles, setUrlArticles] = useState([]) // Список всех загруженных URL-статей
+
+  const handleURLArticleLoaded = (article) => {
+    // Добавляем загруженную статью в список сразу после парсинга
+    const newEntry = {
+      id: `url_${Date.now()}_${article.id}`,
+      article: article,
+      status: 'loaded', // loaded → generating → generated
+      draft: null,
+      timestamp: new Date().toISOString()
+    }
+
+    setUrlArticles(prev => [newEntry, ...prev])
+    console.log('URL article loaded and added to list:', newEntry)
+  }
+
+  const handleURLDraftGenerated = (draftData) => {
+    // Обновляем существующую запись в списке (меняем статус на 'generated')
+    setUrlArticles(prev => prev.map(entry => {
+      if (entry.article.id === draftData.article.id) {
+        return {
+          ...entry,
+          status: 'generated',
+          draft: draftData.draft,
+          isNew: true
+        }
+      }
+      return entry
+    }))
+
+    console.log('URL draft generated, updated article status:', draftData)
+  }
+
+  const handleDeleteURLArticle = (entryId) => {
+    setUrlArticles(prev => prev.filter(entry => entry.id !== entryId))
+  }
+
+  const handleURLGenerationStarted = (articleId) => {
+    // Обновляем статус на 'generating' когда начинается генерация
+    setUrlArticles(prev => prev.map(entry => {
+      if (entry.article.id === articleId) {
+        return { ...entry, status: 'generating' }
+      }
+      return entry
+    }))
+  }
   
   // Состояние для управления парсингом
   const [selectedSources, setSelectedSources] = useState(['ria'])
@@ -483,9 +534,81 @@ function MonitoringContent() {
             )}
             </div>
           )}
-          
-          {/* Найденные новости из базы данных */}
-          <FoundNews />
+
+          {/* Переключатель источника новостей */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center space-x-4">
+              <span className="text-sm font-semibold text-gray-700">Источник новостей:</span>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setNewsSource('found')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                    newsSource === 'found'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <HiOutlineNewspaper className="inline-block mr-2 w-4 h-4" />
+                  Найденные новости
+                </button>
+                <button
+                  onClick={() => setNewsSource('url')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                    newsSource === 'url'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <HiOutlineGlobeAlt className="inline-block mr-2 w-4 h-4" />
+                  Добавить по URL
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Контент в зависимости от источника */}
+          {newsSource === 'found' ? (
+            /* Найденные новости из базы данных */
+            <FoundNews />
+          ) : (
+            /* Добавление новости по URL */
+            <div className="space-y-6">
+              {/* Форма загрузки URL */}
+              <URLNewsInput
+                onArticleLoaded={handleURLArticleLoaded}
+                onDraftGenerated={handleURLDraftGenerated}
+                onGenerationStarted={handleURLGenerationStarted}
+              />
+
+              {/* Список загруженных URL-статей */}
+              {urlArticles.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Загруженные статьи ({urlArticles.length})
+                    </h3>
+                    {urlArticles.some(entry => entry.isNew) && (
+                      <span className="text-sm text-purple-600 font-medium animate-pulse">
+                        Есть новые статьи!
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    {urlArticles.map(entry => (
+                      <URLArticleCard
+                        key={entry.id}
+                        entry={entry}
+                        onGenerationStart={handleURLGenerationStarted}
+                        onDraftGenerated={handleURLDraftGenerated}
+                        onDelete={handleDeleteURLArticle}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Layout>
     </>

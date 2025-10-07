@@ -32,7 +32,7 @@ export default function Login() {
     if (error) {
       clearError();
     }
-  }, [formData.username, formData.password]);
+  }, [formData.username, formData.password, error, clearError]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

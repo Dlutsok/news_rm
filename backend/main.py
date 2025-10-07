@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from api import news, admin, news_generation, auth, users, expenses, monitoring, image_generation, telegram_posts
+from api import news, admin, news_generation, auth, users, expenses, monitoring, image_generation, telegram_posts, url_articles
 from api import settings as settings_api
 from core.config import settings
 from core.env_validator import create_backend_validator
@@ -206,6 +206,8 @@ async def timeout_middleware(request: Request, call_next):
         timeout = 300  # 5 минут для парсинга
     elif request.url.path.startswith("/api/news-generation/generate-article"):
         timeout = 300  # 5 минут для генерации статей с изображениями
+    elif request.url.path.startswith("/api/url-articles/generate-from-url"):
+        timeout = 300  # 5 минут для парсинга URL и генерации
     else:
         timeout = 60   # 1 минута для остальных операций
     
@@ -229,6 +231,7 @@ app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(expenses.router, prefix="/api/expenses", tags=["expenses"])
 app.include_router(image_generation.router, prefix="/api/images", tags=["image-generation"])
 app.include_router(telegram_posts.router, tags=["telegram-posts"])
+app.include_router(url_articles.router, prefix="/api/url-articles", tags=["url-articles"])
 
 # Mount static files for generated images
 from pathlib import Path

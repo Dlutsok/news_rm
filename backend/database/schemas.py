@@ -296,3 +296,47 @@ class DraftRecoveryInfo(BaseModel):
     max_retries: int = Field(3, description="Максимальное количество попыток")
     last_error_step: Optional[str] = Field(None, description="Последний шаг с ошибкой")
     recovery_suggestions: List[str] = Field(default_factory=list, description="Рекомендации по восстановлению")
+
+
+# Схемы для генерации статей из URL
+class URLArticleParseRequest(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    """Запрос на парсинг статьи по URL"""
+    url: str = Field(..., description="URL статьи для парсинга")
+    project: ProjectType = Field(..., description="Тип проекта для адаптации")
+
+
+class URLArticleParseResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    """Результат парсинга статьи из URL"""
+    success: bool = Field(..., description="Успешность парсинга")
+    url: str = Field(..., description="Исходный URL")
+    content: str = Field(..., description="Извлеченный текст статьи")
+    domain: str = Field(..., description="Домен источника")
+    article_id: Optional[int] = Field(None, description="ID созданной статьи в БД")
+    title: Optional[str] = Field(None, description="Заголовок статьи")
+    error: Optional[str] = Field(None, description="Ошибка если парсинг не удался")
+
+
+class URLArticleGenerationRequest(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    """Запрос на генерацию статьи из URL"""
+    url: str = Field(..., description="URL статьи-источника")
+    project: ProjectType = Field(..., description="Тип проекта")
+    formatting_options: Optional[ArticleFormattingOptions] = Field(None, description="Параметры форматирования")
+    generate_image: bool = Field(True, description="Генерировать ли изображение")
+
+
+class URLArticleGenerationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    """Ответ с сгенерированной статьей из URL"""
+    success: bool = Field(..., description="Успешность генерации")
+    draft_id: Optional[int] = Field(None, description="ID созданного черновика")
+    source_url: str = Field(..., description="URL источника")
+    source_domain: str = Field(..., description="Домен источника")
+    news_text: Optional[str] = Field(None, description="Сгенерированный текст")
+    seo_title: Optional[str] = Field(None, description="SEO заголовок")
+    seo_description: Optional[str] = Field(None, description="SEO описание")
+    seo_keywords: Optional[List[str]] = Field(None, description="SEO ключевые слова")
+    image_url: Optional[str] = Field(None, description="URL сгенерированного изображения")
+    error: Optional[str] = Field(None, description="Ошибка если генерация не удалась")

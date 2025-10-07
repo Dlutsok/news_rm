@@ -7,6 +7,7 @@ import {
   HealthIcon,
   MedicalIcon
 } from './ui/icons'
+import api from '../utils/api'
 
 const ProjectSelectorModal = ({ isOpen, onClose, onSelectProject, article }) => {
   const [platforms, setPlatforms] = useState({})
@@ -22,14 +23,8 @@ const ProjectSelectorModal = ({ isOpen, onClose, onSelectProject, article }) => 
   const fetchPlatforms = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/platforms')
-      const data = await response.json()
-      
-      if (response.ok) {
-        setPlatforms(data.platforms)
-      } else {
-        setError('Ошибка загрузки платформ')
-      }
+      const data = await api.getPlatforms()
+      setPlatforms(data.platforms)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching platforms:', error)

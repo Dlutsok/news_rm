@@ -4,18 +4,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    const API_BASE_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
+    const API_BASE_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    console.log('[Login API] Using API_BASE_URL:', API_BASE_URL)
+    
     const { username, password } = req.body || {}
 
     if (!username || !password) {
+      console.error('[Login API] Missing credentials')
       return res.status(400).json({ error: 'Missing credentials' })
     }
 
+    console.log('[Login API] Attempting login for user:', username)
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     })
+    
+    console.log('[Login API] Backend response status:', response.status)
 
     const data = await response.json()
     if (!response.ok) {

@@ -17,11 +17,12 @@ def moscow_now() -> datetime:
 
 class SourceType(str, Enum):
     """Типы источников новостей"""
-    RIA = "ria"
-    MEDVESTNIK = "medvestnik"
-    AIG = "aig"
-    REMEDIUM = "remedium"
-    RBC_MEDICAL = "rbc_medical"
+    RIA = "RIA"
+    MEDVESTNIK = "MEDVESTNIK"
+    AIG = "AIG"
+    REMEDIUM = "REMEDIUM"
+    RBC_MEDICAL = "RBC_MEDICAL"
+    URL = "URL"  # Статьи загруженные по URL
 
 
 class Article(SQLModel, table=True):
