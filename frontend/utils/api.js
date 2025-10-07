@@ -1,51 +1,18 @@
 /**
- * API клиент для работы с backend
+ * API клиент для работы с backend через Next.js API routes
+ * Все запросы идут через Next.js API routes для корректной работы с HttpOnly cookies
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
 class ApiClient {
-  constructor() {
-    this.baseURL = API_BASE_URL;
-  }
-
-  /**
-   * Получить токен из localStorage
-   */
-  getToken() {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('auth_token');
-    }
-    return null;
-  }
-
-  /**
-   * Сохранить токен в localStorage
-   */
-  setToken(token) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token);
-    }
-  }
-
-  /**
-   * Удалить токен из localStorage
-   */
-  removeToken() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-    }
-  }
+  // Токены хранятся в HttpOnly cookies, baseURL и localStorage не нужны
 
   /**
    * Универсальный метод для HTTP запросов
+   * Все запросы идут через Next.js API routes, которые читают HttpOnly cookie
    */
   async request(endpoint, options = {}) {
-    // Все API запросы идут напрямую на backend через nginx
-    const url = endpoint.startsWith('/api/') ? `${this.baseURL}${endpoint}` : `${this.baseURL}${endpoint}`;
-    const token = this.getToken();
-
     const config = {
+      credentials: 'include', // Важно для передачи cookies
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -53,14 +20,9 @@ class ApiClient {
       ...options,
     };
 
-    // Добавляем Authorization header если токен есть
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-
     try {
-      const response = await fetch(url, config);
-      
+      const response = await fetch(endpoint, config);
+
       // Если токен не валиден, перенаправляем на логин, но избегаем петли на /login
       if (response.status === 401) {
         // Не перенаправляем автоматически для запросов getCurrentUser при первой загрузке
@@ -151,7 +113,7 @@ class ApiClient {
 
   // Users endpoints
   async getUsers() {
-    return await this.request('/api/users/');
+    return await this.request('/api/users');
   }
 
   async createUser(userData) {
@@ -217,7 +179,7 @@ class ApiClient {
 
   // News endpoints
   async getNews() {
-    return await this.request('/api/news/');
+    return await this.request('/api/news');
   }
 
   async parseNews(sources, articleCount) {

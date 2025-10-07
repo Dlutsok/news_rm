@@ -114,9 +114,6 @@ export const AuthProvider = ({ children }) => {
         console.error('Failed to load user:', error);
       }
 
-      // Если токен не валиден, удаляем его
-      apiClient.removeToken();
-
       dispatch({
         type: AUTH_ACTIONS.LOAD_USER_ERROR,
         payload: { error: error.message },
@@ -158,10 +155,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
     } catch {}
-    
-    // Удаляем токен из localStorage
-    apiClient.removeToken();
-    
+
     dispatch({ type: AUTH_ACTIONS.LOGOUT });
   };
 
