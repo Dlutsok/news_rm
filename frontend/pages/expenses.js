@@ -8,19 +8,34 @@ import { useRouter } from 'next/router'
 import { useEffect } from 'react'
 
 function ExpensesContent() {
-  const { isAdmin, isAnalyst } = useAuth()
+  const { isAdmin, isAnalyst, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
 
   // Проверка доступа к аналитике (админ или аналитик)
-  const canViewAnalytics = () => isAdmin() || isAnalyst()
+  const canViewAnalytics = isAdmin() || isAnalyst()
 
   useEffect(() => {
-    if (!canViewAnalytics()) {
-      router.push('/')
+    // Ждем загрузки данных пользователя
+    if (!isLoading && isAuthenticated) {
+      if (!canViewAnalytics) {
+        router.push('/')
+      }
     }
-  }, [canViewAnalytics, router])
+  }, [isLoading, isAuthenticated, canViewAnalytics, router])
 
-  if (!canViewAnalytics()) {
+  // Показываем загрузку пока проверяем права
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Проверка прав доступа...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!canViewAnalytics) {
     return null
   }
 

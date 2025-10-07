@@ -24,7 +24,7 @@ import { useAuth } from '@contexts/AuthContext';
 import apiClient from '@utils/api';
 
 const Settings = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isLoading: authLoading } = useAuth();
   const [bitrixProjects, setBitrixProjects] = useState([]);
   const [appSettings, setAppSettings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -266,6 +266,20 @@ const Settings = () => {
       <SystemSettings />
     </div>
   );
+
+  // Показываем загрузку пока проверяем права
+  if (authLoading) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Проверка прав доступа...</p>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   if (!isAdmin()) {
     return (
