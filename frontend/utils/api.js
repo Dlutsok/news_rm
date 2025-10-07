@@ -8,20 +8,55 @@ class ApiClient {
 
   /**
    * Универсальный метод для HTTP запросов
-   * Все запросы идут через Next.js API routes, которые читают HttpOnly cookie
+   * Production: Auth/Users/Settings → Next.js API routes, остальное → /api/proxy
+   * Development (localhost): ВСЕ /api/* → /api/proxy (backend не доступен напрямую)
    */
   async request(endpoint, options = {}) {
+    // На localhost всегда используем proxy для всех /api/* запросов
+    const isLocalhost = typeof window !== 'undefined' &&
+                       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    let finalEndpoint = endpoint;
+
+    if (endpoint.startsWith('/api/') && !endpoint.startsWith('/api/proxy')) {
+      if (isLocalhost) {
+        // На localhost ВСЕ идет через proxy
+        finalEndpoint = `/api/proxy${endpoint}`;
+      } else {
+        // На production: только не-auth/users/settings идут через proxy
+        const needsProxy = !endpoint.startsWith('/api/auth') &&
+                          !endpoint.startsWith('/api/users') &&
+                          !endpoint.startsWith('/api/settings');
+        if (needsProxy) {
+          finalEndpoint = `/api/proxy${endpoint}`;
+        }
+      }
+    }
+
+    // Читаем CSRF token из cookie для POST/PUT/DELETE/PATCH
+    const needsCsrf = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method);
+    let csrfToken = null;
+
+    if (needsCsrf && typeof document !== 'undefined') {
+      csrfToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrf_token='))
+        ?.split('=')[1];
+    }
+
     const config = {
       credentials: 'include', // Важно для передачи cookies
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
+        // Добавляем CSRF token если он есть и метод требует защиты
+        ...(csrfToken && needsCsrf ? { 'X-CSRF-Token': decodeURIComponent(csrfToken) } : {}),
       },
       ...options,
     };
 
     try {
-      const response = await fetch(endpoint, config);
+      const response = await fetch(finalEndpoint, config);
 
       // Если токен не валиден, перенаправляем на логин, но избегаем петли на /login
       if (response.status === 401) {
