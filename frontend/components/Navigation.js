@@ -5,8 +5,7 @@ import {
   HiOutlineNewspaper,
   HiOutlineCog6Tooth,
   HiOutlineGlobeAlt,
-  HiOutlineCurrencyDollar,
-  HiOutlineChartBarSquare
+  HiOutlineCurrencyDollar
 } from 'react-icons/hi2'
 import { useAuth } from '@contexts/AuthContext'
 
@@ -21,7 +20,6 @@ const Navigation = () => {
     { id: 'published', label: 'Опубликованные новости', icon: HiOutlineGlobeAlt, href: '/published' },
     ...(canViewAnalytics() ? [
       { id: 'expenses', label: 'Мониторинг расходов', icon: HiOutlineCurrencyDollar, href: '/expenses' },
-      { id: 'system-monitoring', label: 'Мониторинг системы', icon: HiOutlineChartBarSquare, href: '/system-monitoring' },
     ] : []),
     ...(isAdmin() ? [
       { id: 'settings', label: 'Настройки', icon: HiOutlineCog6Tooth, href: '/settings' },

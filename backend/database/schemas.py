@@ -63,7 +63,7 @@ class ArticleFormattingOptions(BaseModel):
     sentences_per_paragraph: int = Field(default=3, ge=1, le=5, description="Предложений в абзаце (1-5)")
     target_length: int = Field(default=3000, ge=2500, le=6000, description="Целевая длина статьи в символах")
     use_lists: bool = Field(default=True, description="Использовать списки")
-    use_quotes: bool = Field(default=True, description="Использовать цитаты")
+    use_quotes: bool = Field(default=False, description="Использовать цитаты")
 
 
 class ArticleGenerationRequest(BaseModel):

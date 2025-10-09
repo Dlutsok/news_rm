@@ -149,6 +149,17 @@ cp deployed/frontend.env frontend/.env.production
 - [`README.md`](README.md) - Этот файл
 - [`docs/AUTH_SETUP.md`](docs/AUTH_SETUP.md) - Настройка аутентификации
 - [`CODEOWNERS`](CODEOWNERS) - Ответственные за модули
+- [`CLAUDE.md`](CLAUDE.md) - Инструкции для Claude Code
+
+### Разработка
+- [`docs/development/pre-change-checklist.md`](docs/development/pre-change-checklist.md) - Чеклист перед глобальными изменениями
+- [`docs/templates/architecture-analysis-template.md`](docs/templates/architecture-analysis-template.md) - Шаблон архитектурного анализа
+- [`.clinerules`](.clinerules) - Правила автоматизации для Claude Code
+
+### Агенты
+- [`.claude/agents/`](.claude/agents/) - Специализированные агенты Claude Code
+- [`docs/agents-guide.md`](docs/agents-guide.md) - Руководство по работе с агентами
+- [`docs/agents-technical-architect-reference.md`](docs/agents-technical-architect-reference.md) - Детальный справочник Technical Architect
 
 ### Deployment
 - [`deployed/README.md`](deployed/README.md) - Быстрый старт
@@ -161,6 +172,10 @@ cp deployed/frontend.env frontend/.env.production
 
 ### База данных
 - [`docs/db/`](docs/db/) - Схема БД, миграции
+
+### Архитектура
+- [`docs/architecture/`](docs/architecture/) - Архитектурная документация
+- [`docs/adr/`](docs/adr/) - Architecture Decision Records (ADR)
 
 ## 🔐 Безопасность
 
@@ -190,10 +205,34 @@ cp deployed/frontend.env frontend/.env.production
 
 ## 🛠️ Разработка
 
+### Workflow с Technical Architect Agent
+
+Перед внесением **глобальных изменений** в систему (новый функционал, рефакторинг, изменения архитектуры):
+
+1. **Опишите изменение** используя триггерные фразы: "добавить функционал", "рефакторинг", "изменить архитектуру"
+2. **Автоматически активируется Technical Architect Agent** (согласно `.clinerules`)
+3. **TA Agent проведет анализ**:
+   - Оценка влияния на компоненты
+   - Построение графа зависимостей
+   - Матрица рисков
+   - План миграции
+   - Стратегия отката
+4. **Получите детальный отчет** с рекомендациями
+5. **Team Lead (Claude) реализует** согласно плану
+
+**Подробнее:**
+- [Agents Guide](docs/agents-guide.md) - полное руководство по агентам
+- [Technical Architect Reference](docs/agents-technical-architect-reference.md) - детальная документация TA Agent
+- [Pre-Change Checklist](docs/development/pre-change-checklist.md) - чеклист перед изменениями
+- [Architecture Analysis Template](docs/templates/architecture-analysis-template.md) - шаблон отчета
+
 ### Структура проекта
 
 ```
 medical-news-automation/
+├── .claude/              # 🤖 Claude Code конфигурация
+│   └── agents/           # Специализированные агенты
+│       └── technical-architect.md  # TA Agent для анализа изменений
 ├── backend/              # FastAPI приложение
 │   ├── api/              # API endpoints
 │   ├── core/             # Конфигурация, security
@@ -214,8 +253,18 @@ medical-news-automation/
 │   ├── deploy.sh         # Скрипт деплоя
 │   └── git-deploy.sh     # Автодеплой
 ├── docs/                 # Документация
+│   ├── architecture/     # Архитектурная документация
+│   ├── adr/              # Architecture Decision Records
+│   ├── api/              # API документация
+│   ├── db/               # БД схема и миграции
+│   ├── development/      # Руководства для разработчиков
+│   │   └── pre-change-checklist.md  # Чеклист перед изменениями
+│   └── templates/        # Шаблоны документов
+│       └── architecture-analysis-template.md
 ├── scripts/              # Утилиты
-└── docker-compose.yml    # Docker compose для разработки
+├── .clinerules          # 🤖 Правила автоматизации Claude Code
+├── CLAUDE.md            # Инструкции для Claude Code
+└── docker-compose.yml   # Docker compose для разработки
 ```
 
 ### Миграции БД

@@ -24,14 +24,14 @@ class NewsParserManager:
     def _initialize_parsers(self):
         """Инициализация всех доступных парсеров"""
         try:
-            # Регистрируем парсеры
+            # Регистрируем парсеры (ключи в ЗАГЛАВНЫХ буквах как в SourceType enum)
             self._parsers = {}
-            self._parsers['medvestnik'] = MedvestnikParser()
-            self._parsers['ria'] = RiaParser()
-            self._parsers['aig'] = AigParser()
-            self._parsers['remedium'] = RemediumParser()
-            self._parsers['rbc_medical'] = RBCMedicalParser()
-            
+            self._parsers['MEDVESTNIK'] = MedvestnikParser()
+            self._parsers['RIA'] = RiaParser()
+            self._parsers['AIG'] = AigParser()
+            self._parsers['REMEDIUM'] = RemediumParser()
+            self._parsers['RBC_MEDICAL'] = RBCMedicalParser()
+
             logger.info(f"Initialized {len(self._parsers)} news parsers: {list(self._parsers.keys())}")
         except Exception as e:
             logger.error(f"Error initializing parsers: {e}")

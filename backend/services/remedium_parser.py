@@ -32,12 +32,14 @@ class RemediumParser(BaseNewsParser):
             logger.info(f"Загружаем полный контент для {len(articles)} статей Remedium")
             for i, article in enumerate(articles):
                 try:
-                    full_article = await self.fetch_full_article(article.url)
+                    # Конвертируем HttpUrl в строку
+                    url_str = str(article.url)
+                    full_article = await self.fetch_full_article(url_str)
                     if full_article and full_article.content:
                         articles[i].content = full_article.content
                         logger.info(f"Загружен полный контент для статьи: {article.title[:50]}...")
                 except Exception as e:
-                    logger.warning(f"Не удалось загрузить полный контент для {article.url}: {e}")
+                    logger.warning(f"Не удалось загрузить полный контент для {str(article.url)}: {e}")
         
         return articles
     

@@ -134,6 +134,8 @@ class NewsGenerationService:
                 if not draft:
                     raise ValueError(f"Черновик с ID {draft_id} не найден")
 
+                # Логируем состояние ДО обновления
+                logger.info(f"📝 BEFORE update - Draft {draft_id}: status={draft.status}, is_published={draft.is_published}")
 
                 # Обновляем черновик
                 draft.status = "published"
@@ -145,7 +147,9 @@ class NewsGenerationService:
                 draft.updated_at = moscow_now()
 
                 session.commit()
-                logger.info(f"Updated draft {draft_id} publication info: project={project_code}, bitrix_id={bitrix_id}")
+
+                # Логируем состояние ПОСЛЕ обновления
+                logger.info(f"✅ AFTER update - Draft {draft_id}: status={draft.status}, is_published={draft.is_published}, project={project_code}, bitrix_id={bitrix_id}")
                 return True
 
         except Exception as e:
@@ -868,19 +872,20 @@ class NewsGenerationService:
 
                 total = session.exec(count_query).one()
 
-                # Сортировка: сначала запланированные (scheduled), затем опубликованные по дате публикации
-                from sqlalchemy import case
+                # Логируем запрос для отладки
+                logger.info(f"🔍 get_published_news: Searching for drafts with status in ['scheduled', 'published', 'generated'], total found: {total}")
+                logger.info(f"🔍 Filters: project={filter_obj.project}, status={filter_obj.status}, author={filter_obj.author}")
+
+                # Сортировка: новые публикации и запланированные сверху
+                # Используем COALESCE для выбора наибольшей даты из published_at, scheduled_at или created_at
+                from sqlalchemy import case, func
                 query = query.order_by(
-                    case(
-                        (NewsGenerationDraft.status == "scheduled", 1),
-                        (NewsGenerationDraft.status == "published", 2),
-                        else_=3
-                    ),
-                    # Для scheduled сортируем по scheduled_at DESC (ближайшие по времени сверху)
-                    # Для published сортируем по published_at DESC (новые публикации сверху)
-                    NewsGenerationDraft.scheduled_at.desc().nulls_last(),
-                    NewsGenerationDraft.published_at.desc().nulls_last(),
-                    NewsGenerationDraft.created_at.desc()
+                    # Сортируем по самой свежей дате (published_at > scheduled_at > created_at)
+                    func.coalesce(
+                        NewsGenerationDraft.published_at,
+                        NewsGenerationDraft.scheduled_at,
+                        NewsGenerationDraft.created_at
+                    ).desc()
                 )
 
                 # Пагинация
@@ -888,6 +893,11 @@ class NewsGenerationService:
                 query = query.offset(offset).limit(filter_obj.limit)
 
                 results = session.exec(query).all()
+
+                # Логируем найденные результаты
+                logger.info(f"📊 Found {len(results)} drafts on page {filter_obj.page}")
+                for draft, article_title, author_name in results[:5]:  # Первые 5 для примера
+                    logger.info(f"  - Draft {draft.id}: status={draft.status}, is_published={draft.is_published}, project={draft.project}, published_at={draft.published_at}")
 
                 # Определяем название проектов
                 project_names = {

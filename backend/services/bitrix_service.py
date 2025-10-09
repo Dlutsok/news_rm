@@ -85,27 +85,25 @@ class BitrixService:
     def prepare_html_for_bitrix(self, html_content: str) -> str:
         """
         Подготавливает HTML контент для Bitrix CMS
-        Сохраняет HTML структуру и форматирование
+        Сохраняет HTML структуру и форматирование, включая ссылки
         """
         if not html_content:
             return ""
 
-        # Сохраняем исходный HTML, только выполняем минимальную очистку
+        # Сохраняем исходный HTML полностью - Bitrix поддерживает стандартный HTML
+        # Включая <a href>, <strong>, <em>, <p>, <ul>, <li> и т.д.
         cleaned_html = html_content.strip()
 
-        # Конвертируем теги в совместимые с Bitrix (если нужно)
-        # Оставляем большинство HTML тегов как есть для полной поддержки форматирования
+        # НЕ применяем агрессивную очистку - она может сломать ссылки и форматирование
+        # Bitrix отлично работает с обычным HTML
 
-        # Битрикс поддерживает эти теги, но можем заменить на более совместимые:
-        # cleaned_html = cleaned_html.replace('<strong>', '<b>').replace('</strong>', '</b>')
-        # cleaned_html = cleaned_html.replace('<em>', '<i>').replace('</em>', '</i>')
-
-        # НЕ убираем переносы строк - они важны для HTML структуры!
-        # НЕ заменяем <br> теги - они нужны для правильного отображения
-
-        # Убираем только лишние пробелы между тегами (но сохраняем переносы)
-        import re
-        cleaned_html = re.sub(r'>\s+<', '><', cleaned_html)
+        links_count = cleaned_html.count('<a href')
+        logger.info(f"[DEBUG] prepare_html_for_bitrix: Links found: {links_count}")
+        
+        # Логируем первые 1000 символов, чтобы увидеть ссылки
+        if links_count > 0:
+            preview = cleaned_html[:1000] if len(cleaned_html) > 1000 else cleaned_html
+            logger.info(f"[DEBUG] HTML preview with links: {preview}")
 
         return cleaned_html
         
@@ -181,7 +179,8 @@ class BitrixService:
                 "title": title,
                 "preview_text": preview_text,
                 "detail_text": prepared_detail_text,
-                "detail_text_type": "html"  # Явно указываем, что содержимое в HTML формате
+                "detail_text_type": "html",  # Явно указываем, что содержимое в HTML формате
+                "~detail_text": prepared_detail_text  # Без фильтрации (с тильдой)
             }
             
             # Добавляем опциональные поля
@@ -228,6 +227,10 @@ class BitrixService:
                         "Accept": "application/json"
                     }
                 )
+            
+            # Логируем ответ от Bitrix
+            logger.info(f"[DEBUG] Bitrix API response status: {response.status_code}")
+            logger.info(f"[DEBUG] Bitrix API response body: {response.text[:500]}")
                 
             if response.status_code == 200:
                 result = response.json()

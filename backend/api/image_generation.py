@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Optional
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from core.config import settings
-from api.dependencies import get_current_user_optional
+from api.dependencies import get_current_user_optional, get_current_user
 from database.models import User
 
 logger = logging.getLogger(__name__)
@@ -168,3 +168,72 @@ async def get_generation_status():
         "storage_path": str(STORAGE_DIR),
         "storage_exists": STORAGE_DIR.exists()
     }
+
+
+@router.post("/upload", response_model=GenerateImageResponse)
+async def upload_image(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    Загрузка пользовательского изображения
+
+    Принимает изображение от пользователя, сохраняет в storage и возвращает URL
+    """
+    try:
+        # Проверка типа файла
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Недопустимый тип файла: {file.content_type}. Разрешены только изображения."
+            )
+
+        # Проверка размера файла (макс 10MB)
+        max_size = 10 * 1024 * 1024  # 10 MB
+        file_content = await file.read()
+        file_size = len(file_content)
+
+        if file_size > max_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Размер файла ({file_size} байт) превышает максимально допустимый ({max_size} байт)"
+            )
+
+        # Определяем расширение файла
+        extension_map = {
+            'image/jpeg': 'jpg',
+            'image/jpg': 'jpg',
+            'image/png': 'png',
+            'image/gif': 'gif',
+            'image/webp': 'webp'
+        }
+        file_extension = extension_map.get(file.content_type, 'jpg')
+
+        # Генерируем уникальное имя файла
+        filename = f"{uuid.uuid4().hex}.{file_extension}"
+        filepath = STORAGE_DIR / filename
+
+        # Сохраняем файл
+        filepath.write_bytes(file_content)
+
+        # Формируем URL для доступа к изображению
+        base_url = os.getenv('IMAGE_SERVICE_PUBLIC_BASE_URL', str(request.base_url)).rstrip("/")
+        image_url = f"{base_url}/images/{filename}"
+
+        username = current_user.username if current_user else 'anonymous'
+        logger.info(f"Пользователь {username} загрузил изображение: {filename} ({file_size} байт)")
+
+        return GenerateImageResponse(
+            image_url=image_url,
+            model_used="user-upload",
+            success=True,
+            message="Изображение успешно загружено"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Ошибка загрузки изображения: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)

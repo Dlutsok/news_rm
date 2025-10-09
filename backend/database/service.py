@@ -41,20 +41,23 @@ class NewsService:
         with DatabaseSession() as session:
             for article_data in articles:
                 try:
+                    # Конвертируем HttpUrl в строку для SQL запросов
+                    url_str = str(article_data.url)
+
                     # Проверяем существование статьи по URL
                     existing = session.exec(
-                        select(Article).where(Article.url == article_data.url)
+                        select(Article).where(Article.url == url_str)
                     ).first()
-                    
+
                     if existing:
                         duplicate_count += 1
-                        logger.debug(f"Duplicate article found: {article_data.url}")
+                        logger.debug(f"Duplicate article found: {url_str}")
                         continue
-                    
+
                     # Создаем новую статью
                     article = Article(
                         title=article_data.title,
-                        url=article_data.url,
+                        url=url_str,
                         content=article_data.content,
                         source_site=source,
                         published_date=article_data.published_date,
@@ -74,7 +77,7 @@ class NewsService:
                     session.rollback()
                 except Exception as e:
                     error_count += 1
-                    logger.error(f"Error saving article {article_data.url}: {e}")
+                    logger.error(f"Error saving article {str(article_data.url)}: {e}")
                     session.rollback()
         
         # Обновляем статистику источника

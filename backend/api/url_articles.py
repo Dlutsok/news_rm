@@ -56,8 +56,17 @@ async def parse_url_article(
             request.url
         )
 
-        logger.info(f"Article cleaned: {cleaning_metrics.get('reduction_percent', 0)}% reduction, "
-                   f"{cleaning_metrics.get('tokens_used', 0)} tokens used")
+        # 🔍 ПРОВЕРКА FALLBACK: если GPT упал - логируем предупреждение
+        if cleaning_metrics.get('fallback', False):
+            logger.error(f"🔴 GPT FALLBACK! Returning raw content. Error: {cleaning_metrics.get('error', 'Unknown')}")
+            logger.error(f"🔴 Error type: {cleaning_metrics.get('error_type', 'Unknown')}, Attempts: {cleaning_metrics.get('attempts', 'Unknown')}")
+        else:
+            logger.info(f"✅ Article cleaned: {cleaning_metrics.get('reduction_percent', 0)}% reduction, "
+                       f"{cleaning_metrics.get('tokens_used', 0)} tokens, attempt {cleaning_metrics.get('attempt', 1)}")
+            
+            # Проверяем валидацию
+            if not cleaning_metrics.get('validation_passed', True):
+                logger.warning(f"⚠️ Validation warnings: {', '.join(cleaning_metrics.get('validation_warnings', []))}")
 
         # Используем очищенный контент
         parse_result['content'] = cleaned_content
@@ -175,11 +184,60 @@ async def generate_article_from_url(
             source_url
         )
 
-        logger.info(f"Article cleaned: {cleaning_metrics.get('reduction_percent', 0)}% reduction, "
-                   f"{cleaning_metrics.get('tokens_used', 0)} tokens, "
-                   f"from {len(raw_content)} to {len(cleaned_content)} chars")
+        # 🔍 ПРОВЕРКА FALLBACK: если GPT упал - логируем предупреждение
+        if cleaning_metrics.get('fallback', False):
+            logger.error(f"🔴 GPT FALLBACK! Returning raw content. Error: {cleaning_metrics.get('error', 'Unknown')}")
+            logger.error(f"🔴 Error type: {cleaning_metrics.get('error_type', 'Unknown')}, Attempts: {cleaning_metrics.get('attempts', 'Unknown')}")
+        else:
+            logger.info(f"✅ Article cleaned: {cleaning_metrics.get('reduction_percent', 0)}% reduction, "
+                       f"{cleaning_metrics.get('tokens_used', 0)} tokens, attempt {cleaning_metrics.get('attempt', 1)}, "
+                       f"from {len(raw_content)} to {len(cleaned_content)} chars")
+            
+            # Проверяем валидацию
+            if not cleaning_metrics.get('validation_passed', True):
+                logger.warning(f"⚠️ Validation warnings: {', '.join(cleaning_metrics.get('validation_warnings', []))}")
 
         external_content = cleaned_content
+
+        # Шаг 1.7: Создаем или находим Article в БД (нужен для foreign key)
+        # Извлекаем заголовок для статьи
+        title = source_domain
+        h1_match = re.search(r'^#\s+(.+)$', cleaned_content, re.MULTILINE)
+        title_match = re.search(r'^Title:\s*(.+)$', cleaned_content, re.MULTILINE)
+        
+        if h1_match:
+            title = h1_match.group(1).strip()
+        elif title_match:
+            title = title_match.group(1).strip()
+        else:
+            first_line = next((line.strip() for line in cleaned_content.split('\n') if line.strip() and len(line.strip()) > 10), None)
+            if first_line:
+                title = first_line[:200]
+        
+        # Проверяем, не существует ли уже статья с таким URL
+        existing_article = session.query(Article).filter(Article.url == source_url).first()
+        
+        if existing_article:
+            logger.info(f"Using existing article: {existing_article.id}")
+            article_id = existing_article.id
+        else:
+            # Создаем новую статью в БД
+            new_article = Article(
+                title=title,
+                url=source_url,
+                content=cleaned_content,
+                source_site=SourceType.URL,
+                published_date=None,
+                author=source_domain,
+                is_processed=False
+            )
+            
+            session.add(new_article)
+            session.commit()
+            session.refresh(new_article)
+            
+            article_id = new_article.id
+            logger.info(f"Created new article from URL: id={article_id}, title={title[:50]}")
 
         # Шаг 2: Генерируем статью через AI (ai_service уже получен выше)
 
@@ -225,7 +283,7 @@ async def generate_article_from_url(
 
         # Шаг 3: Сохраняем черновик в БД
         draft = NewsGenerationDraft(
-            article_id=0,  # URL статьи не имеют article_id из WordPress
+            article_id=article_id,  # ✅ Используем реальный article_id
             project=request.project.value,
             user_id=current_user.id,
             summary=f"Статья адаптирована из {source_domain}",

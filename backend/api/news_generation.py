@@ -732,18 +732,19 @@ async def publish_to_bitrix(
         draft = news_generation_service.get_draft(request.draft_id)
         if not draft:
             raise HTTPException(status_code=404, detail="Черновик не найден")
-        
-        if draft.status != "generated":
-            raise HTTPException(
-                status_code=400,
-                detail="Статья должна быть сгенерирована перед публикацией"
-            )
-        
+
         # Проверяем что контент сгенерирован
         if not draft.generated_news_text:
             raise HTTPException(
                 status_code=400,
                 detail="Сгенерированный контент не найден"
+            )
+
+        # Проверяем статус: должен быть либо generated, либо draft с контентом
+        if draft.status not in ["generated", "draft"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Статья должна быть сгенерирована перед публикацией"
             )
         
         # Формируем контент из полей черновика
@@ -909,23 +910,24 @@ async def publish_news(
     try:
         from database.models import NewsStatus
         from datetime import datetime, timezone
-        
+
         # Получаем черновик
         draft = news_generation_service.get_draft(request.draft_id)
         if not draft:
             raise HTTPException(status_code=404, detail="Черновик не найден")
-        
-        if draft.status != "generated":
-            raise HTTPException(
-                status_code=400,
-                detail="Статья должна быть сгенерирована перед публикацией"
-            )
-        
+
         # Проверяем что контент сгенерирован
         if not draft.generated_news_text:
             raise HTTPException(
                 status_code=400,
                 detail="Сгенерированный контент не найден"
+            )
+
+        # Проверяем статус: должен быть либо generated, либо draft с контентом
+        if draft.status not in ["generated", "draft"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Статья должна быть сгенерирована перед публикацией"
             )
         
         # Валидации для отложенной публикации

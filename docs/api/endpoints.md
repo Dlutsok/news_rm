@@ -676,6 +676,242 @@
 
 **Response:** Файл изображения
 
+## Telegram посты
+
+### POST /api/telegram-posts/generate
+Генерация Telegram поста для новости
+
+**Request Body:**
+```json
+{
+  "news_draft_id": 456,
+  "hook_type": "question",
+  "disclosure_level": "hint",
+  "call_to_action": "curiosity",
+  "include_image": true
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "post_id": 789,
+  "post_text": "Текст поста для Telegram...",
+  "character_count": 850
+}
+```
+
+### GET /api/telegram-posts/{post_id}
+Получение Telegram поста по ID
+
+**Response:**
+```json
+{
+  "id": 789,
+  "news_draft_id": 456,
+  "hook_type": "question",
+  "disclosure_level": "hint",
+  "call_to_action": "curiosity",
+  "include_image": true,
+  "post_text": "Текст поста...",
+  "character_count": 850,
+  "is_published": false,
+  "published_at": null,
+  "telegram_message_id": null,
+  "created_at": "2024-01-01T12:00:00"
+}
+```
+
+## URL Articles (Генерация из внешних URL)
+
+### POST /api/url-articles/parse
+Парсинг статьи из внешнего URL
+
+**Request Body:**
+```json
+{
+  "url": "https://example.com/article"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "url": "https://example.com/article",
+  "content": "Markdown контент статьи...",
+  "domain": "example.com",
+  "article_id": 123,
+  "title": "Заголовок статьи",
+  "error": null
+}
+```
+
+### POST /api/url-articles/generate-from-url
+Полный цикл генерации статьи из URL
+
+**Request Body:**
+```json
+{
+  "url": "https://example.com/article",
+  "project": "gynecology.school",
+  "generate_image": true,
+  "formatting_options": {
+    "include_sources": true,
+    "add_expert_opinion": false
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "draft_id": 456,
+  "source_url": "https://example.com/article",
+  "source_domain": "example.com",
+  "news_text": "Сгенерированная статья...",
+  "seo_title": "SEO заголовок",
+  "seo_description": "SEO описание",
+  "seo_keywords": ["keyword1", "keyword2"],
+  "image_url": "https://...",
+  "error": null
+}
+```
+
+## Дополнительные эндпоинты
+
+### POST /api/auth/verify-token
+Проверка валидности JWT токена
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+  "valid": true,
+  "user": {
+    "id": 1,
+    "username": "admin",
+    "role": "admin",
+    "project": "gynecology.school"
+  }
+}
+```
+
+### POST /api/news/parse-with-batch-save
+Парсинг с промежуточным сохранением пакетами
+
+**Request Body:**
+```json
+{
+  "sources": ["ria"],
+  "max_articles": 100,
+  "fetch_full_content": true
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "sources": {
+    "ria": {
+      "status": "success",
+      "parsed": 100,
+      "saved": 95,
+      "duplicates": 5,
+      "errors": 0
+    }
+  },
+  "total_parsed": 100,
+  "total_saved": 95,
+  "total_duplicates": 5,
+  "total_errors": 0
+}
+```
+
+### GET /api/news/articles-with-publication-status
+Получение статей с информацией о публикациях
+
+**Query Parameters:**
+- `source` (optional): фильтр по источнику
+- `limit` (optional, default=1000): количество статей
+- `offset` (optional, default=0): смещение
+
+**Response:**
+```json
+{
+  "articles": [
+    {
+      "id": 123,
+      "title": "Заголовок",
+      "url": "https://...",
+      "source": "ria",
+      "published_date": "2024-01-01T12:00:00",
+      "is_published": true,
+      "is_scheduled": false,
+      "has_draft": true,
+      "draft_id": 456,
+      "published_projects": [
+        {
+          "project_code": "GS",
+          "project_name": "Gynecology School",
+          "bitrix_id": 789,
+          "published_at": "2024-01-02T10:00:00"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### GET /api/news/draft/{draft_id}
+Получение черновика для редактирования
+
+**Response:**
+```json
+{
+  "id": 456,
+  "article_id": 123,
+  "project": "gynecology.school",
+  "summary": "Выжимка...",
+  "facts": "[]",
+  "generated_news_text": "Текст новости...",
+  "generated_seo_title": "SEO заголовок",
+  "generated_seo_description": "SEO описание",
+  "generated_seo_keywords": "[]",
+  "generated_image_prompt": "Промпт...",
+  "generated_image_url": "https://...",
+  "status": "generated",
+  "scheduled_at": null,
+  "is_published": false,
+  "created_at": "2024-01-01T12:00:00"
+}
+```
+
+### DELETE /api/news/article/{article_id}
+Удаление статьи по ID
+
+**Response:**
+```json
+{
+  "message": "Article 123 deleted successfully"
+}
+```
+
+### DELETE /api/news/articles/source/{source}
+Удаление всех статей из источника
+
+**Response:**
+```json
+{
+  "message": "Successfully deleted articles from ria",
+  "deleted_count": 150
+}
+```
+
 ## Коды ошибок
 
 ### Стандартные HTTP коды

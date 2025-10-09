@@ -39,7 +39,7 @@ import apiClient from '@utils/api'
 const FoundNews = ({ selectedPlatform }) => {
   const [news, setNews] = useState([])
   const [loading, setLoading] = useState(false)
-  const [selectedSource, setSelectedSource] = useState('ria') // По умолчанию ria.ru
+  const [selectedSource, setSelectedSource] = useState('RIA') // По умолчанию ria.ru
   const [limit, setLimit] = useState(100)
   const [offset, setOffset] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
@@ -75,11 +75,12 @@ const FoundNews = ({ selectedPlatform }) => {
 
   // Доступные источники новостей
   const availableSources = [
-    { value: 'ria', label: 'РИА Новости', description: 'Федеральное информационное агентство' },
-    { value: 'medvestnik', label: 'Медвестник', description: 'Медицинские новости и исследования' },
-    { value: 'aig', label: 'AIG Journal', description: 'Акушерство, гинекология и репродуктология' },
-    { value: 'remedium', label: 'Remedium.ru', description: 'Медицинский портал для специалистов' },
-    { value: 'rbc_medical', label: 'РБК Медицина', description: 'Медицинские новости РБК' }
+    { value: 'RIA', label: 'РИА Новости', description: 'Федеральное информационное агентство' },
+    { value: 'MEDVESTNIK', label: 'Медвестник', description: 'Медицинские новости и исследования' },
+    { value: 'AIG', label: 'AIG Journal', description: 'Акушерство, гинекология и репродуктология' },
+    { value: 'REMEDIUM', label: 'Remedium.ru', description: 'Медицинский портал для специалистов' },
+    { value: 'RBC_MEDICAL', label: 'РБК Медицина', description: 'Медицинские новости РБК' },
+    { value: 'URL', label: 'Внешние URL', description: 'Статьи, добавленные по ссылке' }
   ]
 
   // Загрузка новостей при изменении источника или при первой загрузке
@@ -522,7 +523,10 @@ const FoundNews = ({ selectedPlatform }) => {
           // Показываем сообщение об успешном планировании
           alert(`Публикация запланирована на ${new Date(publishData.scheduled_at).toLocaleString('ru-RU')}`)
         }
-        
+
+        // Обновляем список новостей, чтобы отобразить новый статус
+        await loadNewsFromDatabase()
+
         // Сбрасываем состояние после успешной публикации
         resetGenerationState()
       } else {

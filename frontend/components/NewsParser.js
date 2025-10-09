@@ -20,18 +20,18 @@ const NewsParser = ({ selectedPlatform }) => {
   const [dateFilter, setDateFilter] = useState('')
   const [fastMode, setFastMode] = useState(false)
   const [combineResults, setCombineResults] = useState(true)
-  const [selectedSources, setSelectedSources] = useState(['ria', 'medvestnik', 'aig', 'remedium', 'rbc_medical']) // Новое состояние для источников
+  const [selectedSources, setSelectedSources] = useState(['RIA', 'MEDVESTNIK', 'AIG', 'REMEDIUM', 'RBC_MEDICAL']) // Новое состояние для источников
   const [lastParsed, setLastParsed] = useState(null)
   const [selectedArticle, setSelectedArticle] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Доступные источники новостей
   const availableSources = [
-    { value: 'ria', label: 'РИА Новости', description: 'Федеральное информационное агентство' },
-    { value: 'medvestnik', label: 'Медвестник', description: 'Медицинские новости и исследования' },
-    { value: 'aig', label: 'AIG Journal', description: 'Акушерство, гинекология и репродуктология' },
-    { value: 'remedium', label: 'Remedium.ru', description: 'Медицинский портал для специалистов' },
-    { value: 'rbc_medical', label: 'РБК Медицина', description: 'Медицинские новости РБК' }
+    { value: 'RIA', label: 'РИА Новости', description: 'Федеральное информационное агентство' },
+    { value: 'MEDVESTNIK', label: 'Медвестник', description: 'Медицинские новости и исследования' },
+    { value: 'AIG', label: 'AIG Journal', description: 'Акушерство, гинекология и репродуктология' },
+    { value: 'REMEDIUM', label: 'Remedium.ru', description: 'Медицинский портал для специалистов' },
+    { value: 'RBC_MEDICAL', label: 'РБК Медицина', description: 'Медицинские новости РБК' }
   ]
 
   const parseNewsToDatabase = async () => {

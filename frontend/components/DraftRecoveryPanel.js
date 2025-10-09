@@ -6,7 +6,7 @@ import {
   DocumentIcon,
   RefreshIcon
 } from './ui/icons';
-import axios from 'axios';
+import apiClient from '@utils/api';
 import Alert from '@components/ui/Alert';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
@@ -25,13 +25,10 @@ const DraftRecoveryPanel = ({ onDraftRecovered }) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get('/api/news-generation/failed-drafts', {
-        params: {
-          limit: 20,
-          include_recoverable_only: true
-        }
+      const data = await apiClient.request('/api/news-generation/failed-drafts?limit=20&include_recoverable_only=true', {
+        method: 'GET'
       });
-      setFailedDrafts(response.data);
+      setFailedDrafts(data);
     } catch (err) {
       console.error('Error loading failed drafts:', err);
       setError('Ошибка загрузки черновиков с ошибками');
@@ -45,15 +42,17 @@ const DraftRecoveryPanel = ({ onDraftRecovered }) => {
       setRetrying(prev => ({ ...prev, [draftId]: true }));
       setError(null);
 
-      const response = await axios.post(`/api/news-generation/retry/${draftId}`);
+      const data = await apiClient.request(`/api/news-generation/retry/${draftId}`, {
+        method: 'POST'
+      });
 
-      if (response.data.success) {
+      if (data.success) {
         // Убираем черновик из списка ошибочных
         setFailedDrafts(prev => prev.filter(draft => draft.id !== draftId));
 
         // Уведомляем родительский компонент о восстановлении
         if (onDraftRecovered) {
-          onDraftRecovered(draftId, response.data);
+          onDraftRecovered(draftId, data);
         }
 
         // Показываем успешное сообщение
@@ -61,7 +60,7 @@ const DraftRecoveryPanel = ({ onDraftRecovered }) => {
       }
     } catch (err) {
       console.error('Error retrying draft:', err);
-      setError(`Ошибка восстановления черновика #${draftId}: ${err.response?.data?.detail || err.message}`);
+      setError(`Ошибка восстановления черновика #${draftId}: ${err.message}`);
     } finally {
       setRetrying(prev => ({ ...prev, [draftId]: false }));
     }
@@ -69,7 +68,9 @@ const DraftRecoveryPanel = ({ onDraftRecovered }) => {
 
   const removeDraft = async (draftId) => {
     try {
-      await axios.delete(`/api/news-generation/clear-error/${draftId}`);
+      await apiClient.request(`/api/news-generation/clear-error/${draftId}`, {
+        method: 'DELETE'
+      });
       setFailedDrafts(prev => prev.filter(draft => draft.id !== draftId));
     } catch (err) {
       console.error('Error removing draft from recovery list:', err);

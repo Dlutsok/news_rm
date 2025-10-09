@@ -112,6 +112,15 @@ class URLArticleParser:
         # Удаляем телефоны в формате +7, 8-800 и т.д.
         content = re.sub(r'[\+]?[(]?[0-9]{1,3}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,9}', '', content)
 
+        # Удаляем ИНН, ОГРН, ОКПО (распространенные форматы)
+        content = re.sub(r'\b(ИНН|ОГРН|ОКПО|КПП|ОКВЭД)[\s:]*\d+', '', content, flags=re.IGNORECASE)
+
+        # Удаляем адреса (город, улица, дом)
+        content = re.sub(r'\b(г\.|город|ул\.|улица|пр\.|проспект|д\.|дом)\s+[А-Яа-яёЁ0-9\s,.-]+', '', content)
+
+        # Удаляем строки с количеством пользователей/просмотров
+        content = re.sub(r'\*{2,}\s*(зарегистрированных|просмотров|пользователей)', '', content, flags=re.IGNORECASE)
+
         lines = content.split('\n')
         cleaned_lines = []
         skip_until_title = True
@@ -124,17 +133,29 @@ class URLArticleParser:
                     cleaned_lines.append(line)
                 continue
 
-            # Пропускаем строки с навигацией и рекламой
+            # Пропускаем строки с навигацией, рекламой, модальными окнами и footer
             if any(keyword in line.lower() for keyword in [
-                'image ', 'войти', 'авторизуйтесь', 'комментарии', 'комментировать',
-                'загрузить еще', 'подписаться', 'подписка', 'реклама', 'banner',
-                'cookie', 'принять', '[](http', 'vk.com', 'telegram', 'поделиться',
-                'twitter', 'whatsapp', 'viber', 'skype', 'яндекс.метрика',
-                'рекламодателям', 'контакты', 'редакция', 'политика', 'читайте также',
+                # Авторизация и регистрация
+                'image ', 'войти', 'вход', 'авторизуйтесь', 'авторизоваться', 'регистрация', 'зарегистрироваться',
+                'комментарии', 'комментировать', 'загрузить еще',
+                # Подписки и реклама
+                'подписаться', 'подписка', 'реклама', 'banner', 'написать нам',
+                # Cookie и модальные окна
+                'cookie', 'принять', 'подтвердите', 'совершеннолетн', 'возраст', '18+',
+                # Соцсети и мессенджеры
+                '[](http', 'vk.com', 'telegram', 'поделиться', 'twitter', 'whatsapp', 'viber', 'skype',
+                'facebook', 'youtube', 'instagram', 'яндекс.метрика',
+                # Footer и контакты
+                'рекламодателям', 'контакты', 'редакция', 'политика', 'оферта', 'пользовательское соглашение',
+                'инн', 'огрн', 'окпо', 'юридический адрес', 'наименование организации', 'ооо', 'ао', 'зао',
+                # Навигация
+                'читайте также', 'о нас', 'мероприятия', 'эксперты', 'специальности', 'главная',
+                # Дополнительный контент
                 'воспроизведение материалов', 'источник:', 'фото:', 'видео:',
                 'все права защищены', 'перепечатка', 'использование материалов',
-                'новостная лента', 'популярное', 'рекомендуем', 'по теме',
-                'смотрите также', 'больше новостей', 'следите за нами'
+                'новостная лента', 'популярное', 'популярные новости', 'рекомендуем', 'по теме',
+                'смотрите также', 'больше новостей', 'следите за нами', 'ближайшие мероприятия',
+                'условия использования', 'читать далее', 'подробнее'
             ]):
                 continue
 
@@ -324,8 +345,8 @@ class URLArticleParser:
             'X-With-Images-Summary': 'false',
             # Целевые селекторы для извлечения основного контента
             'X-Target-Selector': 'article,main,.post-content,.article-body,.entry-content,.content,.post,.article-text',
-            # Расширенный список элементов для удаления
-            'X-Remove-Selector': 'nav,header,footer,aside,.sidebar,.advertisement,.social-share,#comments,.cookie-notice,.related-posts,.newsletter,.popup,.promo,.banner,.widget,.ad,#sidebar,.share-buttons,.author-box',
+            # Расширенный список элементов для удаления (модальные окна, footer, навигация, реклама)
+            'X-Remove-Selector': 'nav,header,footer,aside,.sidebar,.advertisement,.social-share,#comments,.cookie-notice,.related-posts,.newsletter,.popup,.promo,.banner,.widget,.ad,#sidebar,.share-buttons,.author-box,.modal,.age-verification,.login-prompt,.auth-form,.registration-form,.gdpr-notice,.contact-info,.company-info,.legal-info,.breadcrumbs,.tags,.categories,.popular-posts,.recent-posts,.upcoming-events,.event-list,.social-links,.footer-menu,.header-menu,.site-nav,.site-footer,.site-header',
         }
 
         logger.info(f"Parsing article from URL: {url} via Jina AI Reader")

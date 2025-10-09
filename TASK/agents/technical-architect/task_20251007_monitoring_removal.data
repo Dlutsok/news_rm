@@ -1,0 +1,255 @@
+ДАТА: 2025-10-07 14:30:00
+СТАТУС: Анализ завершен
+ЗАДАЧА: Полное удаление функционала системного мониторинга (System Monitoring)
+
+ЗАТРОНУТЫЕ КОМПОНЕНТЫ:
+Backend:
+- backend/api/monitoring.py (DELETE - 362 строки, 10 API endpoints)
+- backend/services/system_monitoring.py (DELETE - 352 строки, SystemMonitor class)
+- backend/services/db_monitoring.py (KEEP - используется admin API!)
+- backend/main.py (UPDATE - удалить импорт и регистрацию роутера)
+- backend/requirements.txt (OPTIONAL - удалить psutil если не используется)
+
+Frontend:
+- frontend/pages/system-monitoring.js (DELETE - 85 строк)
+- frontend/components/monitoring/ (DELETE - вся директория, 4 компонента, ~815 строк)
+  - SystemMonitoringDashboard.js (409 строк)
+  - ServiceStatusCard.js
+  - SystemMetricsPanel.js
+  - AlertsPanel.js
+- frontend/components/Navigation.js (UPDATE - удалить пункт меню, строки 9, 24)
+
+Documentation:
+- CLAUDE.md (UPDATE - Backend Structure, Common Debugging)
+- CHANGELOG.md (UPDATE - добавить запись об удалении)
+- docs/adr/ADR-XXX-remove-system-monitoring.md (CREATE - новый ADR)
+
+РИСКИ (по критичности):
+
+Critical (0 рисков):
+- Нет критичных рисков
+
+High (1 риск):
+- Риск: Admin API /stats/database/* сломается при удалении db_monitoring.py
+  Митигация: СОХРАНИТЬ backend/services/db_monitoring.py (используется admin.py)
+  Вероятность: Medium
+  Критичность: High
+
+Medium (2 риска):
+- Риск: Breaking frontend при обращении к удаленным API endpoints
+  Митигация: Удалить frontend компоненты одновременно с backend
+  Вероятность: High
+  Критичность: Medium
+
+- Риск: Пользователи увидят ошибку 404 при клике на "Мониторинг системы"
+  Митигация: Обновить Navigation.js (убрать пункт меню)
+  Вероятность: High
+  Критичность: Low
+
+Low (3 риска):
+- Риск: Остаточные импорты psutil вызовут ошибки
+  Митигация: Grep-поиск всех использований psutil перед удалением
+  Вероятность: Low
+  Критичность: Low
+
+- Риск: Документация будет ссылаться на несуществующий код
+  Митигация: Обновить CLAUDE.md, примеры кода
+  Вероятность: Low
+  Критичность: Low
+
+- Риск: Потеря возможности мониторинга системы в будущем
+  Митигация: Сохранить код в отдельной ветке перед удалением
+  Вероятность: Medium
+  Критичность: Low
+
+Risk Score: 22 (Medium)
+
+ГРАФ ЗАВИСИМОСТЕЙ:
+См. детальный граф в файле monitoring_removal_analysis_20251007.md (раздел "Dependency Graph")
+
+Основные зависимости:
+- backend/api/monitoring.py → services/system_monitoring.py (DELETE оба)
+- backend/api/monitoring.py → services/db_monitoring.py (DELETE только monitoring.py!)
+- backend/api/admin.py → services/db_monitoring.py (KEEP оба!)
+- frontend/pages/system-monitoring.js → components/monitoring/* (DELETE все)
+- frontend/components/Navigation.js → system-monitoring page (UPDATE menu)
+
+Изолированные компоненты (безопасно удалить):
+- SystemMonitor class (глобальный singleton, нет внешних зависимостей)
+- monitoring/ компоненты frontend (используются только на одной странице)
+
+ПЛАН МИГРАЦИИ:
+Phase 1: Preparation (30 min)
+- Создать feature branch feature/remove-system-monitoring
+- Проверить использование db_monitoring.py в admin.py (должен использоваться!)
+- Проверить использование psutil (только в system_monitoring.py?)
+- Проверить использование aiohttp (также в parsers - НЕ удалять!)
+
+Phase 2: Backend Removal (1 hour)
+- Удалить backend/api/monitoring.py
+- Удалить backend/services/system_monitoring.py
+- Обновить backend/main.py (удалить импорт строка 13, регистрацию строка 225)
+- СОХРАНИТЬ backend/services/db_monitoring.py
+- Опционально: удалить psutil из requirements.txt (если проверка прошла)
+
+Phase 3: Frontend Removal (1 hour)
+- Удалить frontend/pages/system-monitoring.js
+- Удалить frontend/components/monitoring/ (вся директория)
+- Обновить frontend/components/Navigation.js (удалить строки 9, 24)
+- Проверить что нет остаточных ссылок (grep system-monitoring)
+
+Phase 4: Validation & Testing (1 hour)
+- Backend health check: curl http://localhost:8000/health
+- Verify monitoring endpoints gone: curl /api/admin/monitoring/* (ожидается 404)
+- Verify admin DB endpoints work: curl /api/admin/stats/database (ожидается 200)
+- Frontend build: npm run build (успешно)
+- Navigation check: нет пункта "Мониторинг системы"
+- Critical functionality: парсинг, генерация, публикация работают
+
+Phase 5: Documentation (30 min)
+- Обновить CLAUDE.md
+- Обновить CHANGELOG.md
+- Создать docs/adr/ADR-XXX-remove-system-monitoring.md
+
+Phase 6: Finalization (30 min)
+- Clean up pyc files
+- Run linters (optional)
+- Commit changes
+- Push to remote (optional)
+
+Estimated Time: 4.5 hours
+
+ROLLBACK STRATEGY:
+Triggers:
+- Critical: Backend не стартует, Admin DB endpoints не работают, критичные функции сломаны
+- High: Frontend не собирается, неожиданные ошибки в других модулях
+- Medium: Пользователи требуют вернуть мониторинг, найдены скрытые зависимости
+
+Steps:
+```bash
+# Quick rollback (code only)
+cd "/Users/dan/Documents/RM Service/SEO NEW 5"
+git reset --hard HEAD~1
+docker-compose restart backend frontend
+
+# Full rollback (with dependencies)
+cd backend
+pip install psutil==5.9.6
+uvicorn main:app --reload
+
+# Docker rollback
+docker-compose down
+git reset --hard HEAD~1
+docker-compose up -d --build
+```
+
+РЕКОМЕНДАЦИИ ДЛЯ TEAM LEAD:
+
+Must Have:
+1. СОХРАНИТЬ db_monitoring.py (используется admin API)
+2. Протестировать admin БД endpoints после удаления
+3. Обновить Navigation.js (убрать пункт меню)
+4. Создать ADR для документирования решения
+5. Проверить что aiohttp НЕ удален (используется parsers)
+
+Nice to Have:
+1. Сохранить код в archive/system-monitoring-backup branch
+2. Добавить внешний мониторинг (Grafana + Prometheus)
+3. Обновить .gitignore если нужно
+4. Написать миграционный гайд для других разработчиков
+5. Проверить Docker образы (размер должен уменьшиться)
+
+Critical Points:
+⚠️ НЕ УДАЛЯТЬ:
+- backend/services/db_monitoring.py (используется admin API!)
+- frontend/pages/monitoring.js (главная страница - news monitoring!)
+- frontend/components/NewsMonitoring.js (новостной мониторинг)
+- frontend/components/ExpenseMonitoring.js (AI расходы)
+- aiohttp из requirements.txt (используется parsers)
+
+⚠️ РАЗЛИЧАТЬ:
+- System Monitoring (/system-monitoring) → УДАЛИТЬ
+- News Monitoring (/monitoring, /) → СОХРАНИТЬ
+- Expense Monitoring (/expenses) → СОХРАНИТЬ
+
+РЕКОМЕНДАЦИИ ДЛЯ ДРУГИХ АГЕНТОВ:
+
+api-contract:
+- Проверить что удаление /api/admin/monitoring/* не нарушает API contracts
+- Обновить API документацию если есть ссылки на monitoring endpoints
+
+db-migrations:
+- Миграций БД НЕ требуется (мониторинг не использует таблицы БД)
+- db_monitoring.py использует только read-only SQL запросы (pg_stat_*)
+
+frontend-uiux:
+- Проверить что UI/UX не пострадал после удаления пункта меню
+- Убедиться что navigation остается понятной для пользователей
+
+RAD (Repository Architecture Documentation):
+- Обновить архитектурные диаграммы (если есть)
+- Создать ADR для документирования удаления
+- Обновить список компонентов в overview документации
+
+ГОТОВНОСТЬ К РЕАЛИЗАЦИИ:
+Статус: READY
+Условия: Нет дополнительных условий
+Приоритет: MEDIUM
+Estimated Time: 4.5 hours
+Risk Score: 22 (Medium)
+
+СЛЕДУЮЩИЕ ШАГИ:
+1. Team Lead начинает с создания feature branch feature/remove-system-monitoring
+2. Выполняет Phase 1 (Preparation) - проверки зависимостей
+3. Выполняет Phase 2-3 (Backend + Frontend Removal) - удаление кода
+4. Выполняет Phase 4 (Testing) - проверка что всё работает
+5. Выполняет Phase 5-6 (Documentation + Finalization) - коммит и deploy
+6. Финальные проверки: backend health, admin DB endpoints, frontend build, critical functionality
+
+ADR ТРЕБУЕТСЯ:
+YES - Создать docs/adr/ADR-XXX-remove-system-monitoring.md
+
+Содержание ADR:
+- Контекст: Функционал не используется, технический долг
+- Решение: Удалить system monitoring, сохранить db_monitoring
+- Последствия: Упрощение архитектуры, -1800 строк, -1 зависимость
+- Альтернатива: Внешние инструменты (Grafana, Prometheus)
+
+FILES TO DELETE:
+backend/api/monitoring.py
+backend/api/__pycache__/monitoring.cpython-313.pyc
+backend/services/system_monitoring.py
+backend/services/__pycache__/system_monitoring.cpython-313.pyc
+frontend/pages/system-monitoring.js
+frontend/components/monitoring/ (вся директория)
+
+FILES TO MODIFY:
+backend/main.py (строки 13, 225)
+frontend/components/Navigation.js (строки 9, 24)
+backend/requirements.txt (опционально - psutil)
+CLAUDE.md
+CHANGELOG.md
+
+FILES TO CREATE:
+docs/adr/ADR-XXX-remove-system-monitoring.md
+
+FILES TO KEEP:
+✅ backend/services/db_monitoring.py
+✅ backend/api/admin.py
+✅ frontend/pages/monitoring.js
+✅ frontend/components/NewsMonitoring.js
+✅ frontend/components/ExpenseMonitoring.js
+✅ All parsers
+
+SUMMARY STATISTICS:
+- Code removed: ~1600 строк (backend: 714, frontend: 900+)
+- Files deleted: 7 (2 backend, 5 frontend)
+- Files modified: 4
+- Files created: 1 (ADR)
+- Dependencies can remove: psutil (if only in system_monitoring)
+- Dependencies must keep: aiohttp (used by parsers)
+
+---
+Technical Architect Agent
+Analysis completed: 2025-10-07 14:30:00
+Report file: monitoring_removal_analysis_20251007.md

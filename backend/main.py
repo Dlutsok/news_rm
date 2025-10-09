@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from api import news, admin, news_generation, auth, users, expenses, monitoring, image_generation, telegram_posts, url_articles
+from api import news, admin, news_generation, auth, users, expenses, image_generation, telegram_posts, url_articles
 from api import settings as settings_api
 from core.config import settings
 from core.env_validator import create_backend_validator
@@ -222,7 +222,6 @@ async def timeout_middleware(request: Request, call_next):
 
 # Include routers
 app.include_router(news.router, prefix="/api/news", tags=["news"])
-app.include_router(monitoring.router, prefix="/api/admin/monitoring", tags=["monitoring"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(news_generation.router, tags=["news-generation"])
 app.include_router(settings_api.router, prefix="/api", tags=["settings"])
@@ -237,7 +236,7 @@ app.include_router(url_articles.router, prefix="/api/url-articles", tags=["url-a
 from pathlib import Path
 STORAGE_DIR = Path(__file__).parent / "storage" / "images"
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/api/images/storage/images", StaticFiles(directory=str(STORAGE_DIR), html=False), name="images")
+app.mount("/images", StaticFiles(directory=str(STORAGE_DIR), html=False), name="images")
 
 
 @app.get("/")

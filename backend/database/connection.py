@@ -44,7 +44,8 @@ def create_db_and_tables():
         # Импортируем все модели, чтобы они были зарегистрированы
         from database.models import (
             Article, SourceStats, ParseSession, NewsGenerationDraft, GenerationLog,
-            User, BitrixProjectSettings, AppSettings, PublicationLog
+            User, BitrixProjectSettings, AppSettings, PublicationLog, TelegramPost,
+            Publication, Expense
         )
         
         SQLModel.metadata.create_all(engine)

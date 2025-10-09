@@ -1,0 +1,226 @@
+# Claude Code Rules для Medical News Automation System
+
+## Автоматическая активация агентов
+
+### Technical Architect Agent
+Автоматически активировать агент Technical Architect при обнаружении следующих паттернов в задаче пользователя:
+
+**Триггерные фразы (русский)**:
+- "добавить функционал"
+- "добавить новый"
+- "убрать функционал"
+- "удалить функционал"
+- "рефакторинг"
+- "реорганизовать"
+- "изменить структуру"
+- "изменить архитектуру"
+- "новый сервис"
+- "новая интеграция"
+- "миграция базы"
+- "изменить API"
+- "breaking change"
+- "глобальные изменения"
+- "масштабные изменения"
+
+**Триггерные фразы (английский)**:
+- "add feature"
+- "add new"
+- "remove feature"
+- "delete feature"
+- "refactor"
+- "restructure"
+- "change structure"
+- "change architecture"
+- "new service"
+- "new integration"
+- "database migration"
+- "change API"
+- "breaking change"
+- "global changes"
+- "major changes"
+
+**Правило активации**:
+```
+IF user_message CONTAINS any(trigger_phrases) AND task_complexity >= medium THEN
+    ACTIVATE Technical Architect Agent
+    WAIT FOR analysis_report
+    PROVIDE report TO team_lead
+ELSE
+    PROCEED with standard workflow
+END IF
+```
+
+**Исключения** (НЕ активировать TA для):
+- Мелкие багфиксы (typo, minor bugs)
+- Изменение текстов/переводов
+- Обновление документации без кодовых изменений
+- Мелкие UI правки (цвета, отступы)
+
+## Специфика проекта
+
+### Критические зоны (всегда анализировать перед изменением):
+1. **База данных**:
+   - ENUM типы требуют специальных миграций
+   - PostgreSQL 16 на production
+   - Использовать Alembic для всех миграций
+
+2. **Аутентификация**:
+   - JWT только в HttpOnly cookies
+   - CSRF protection обязателен
+   - CORS strict для production
+
+3. **Мультипроектность**:
+   - Изменения должны учитывать все 3 проекта (GS, PS, TS)
+   - Проверять настройки в `bitrix_project_settings`
+
+4. **Timezone**:
+   - Всегда использовать Europe/Moscow
+   - Планировщики работают по MSK
+
+5. **AI сервисы**:
+   - Tracking расходов обязателен
+   - Изменения промптов → документировать
+
+## Workflow с Technical Architect Agent
+
+```
+User Request
+    ↓
+[Check for trigger phrases]
+    ↓
+    ├── Triggers found → Activate TA Agent
+    │       ↓
+    │   [TA Deep Analysis]
+    │       ↓
+    │   [Architecture Report]
+    │       ↓
+    │   [Risk Assessment]
+    │       ↓
+    │   [Migration Plan]
+    │       ↓
+    │   [Handoff to Team Lead]
+    │       ↓
+    │   [Implementation with monitoring]
+    │       ↓
+    │   [Documentation update]
+    │       ↓
+    │   [Create ADR if needed]
+    │
+    └── No triggers → Standard workflow
+            ↓
+        [Direct implementation]
+```
+
+## Обязательные проверки перед коммитом
+
+### Для изменений в backend/:
+- [ ] Alembic миграции созданы (если меняется БД)
+- [ ] Тесты обновлены
+- [ ] API документация обновлена (`docs/api/endpoints.md`)
+- [ ] ENUM изменения учитывают production БД
+
+### Для изменений в frontend/:
+- [ ] Использованы алиасы импортов (@components, @utils, @contexts)
+- [ ] TypeScript ошибок нет
+- [ ] Responsive design проверен
+
+### Для архитектурных изменений:
+- [ ] ADR создан в `docs/adr/`
+- [ ] `docs/architecture/overview.md` обновлен
+- [ ] Rollback strategy задокументирована
+- [ ] Changelog обновлен
+
+## Соглашения о коде
+
+### Backend (Python):
+- Использовать type hints
+- SQLModel для моделей БД
+- Pydantic для validation
+- Async/await где возможно
+- Moscow timezone для дат
+
+### Frontend (Next.js):
+- Использовать алиасы импортов
+- Functional components + hooks
+- PropTypes или TypeScript
+- Tailwind для стилей
+
+### Базы данных:
+- Alembic для миграций
+- Индексы для частых запросов
+- Foreign keys с ON DELETE CASCADE где уместно
+- ENUM типы для фиксированных значений
+
+## Документация
+
+### Обязательно обновлять при изменениях:
+- `CLAUDE.md` - команды разработки
+- `docs/api/endpoints.md` - API endpoints
+- `docs/db/schema.md` - схема БД
+- `docs/architecture/overview.md` - архитектура
+- `CHANGELOG.md` - список изменений
+
+### Создавать ADR для:
+- Изменения архитектуры
+- Выбор технологий
+- Breaking changes
+- Существенные рефакторинги
+
+## Безопасность
+
+### Никогда не коммитить:
+- `.env` файлы с реальными credentials
+- API ключи в коде
+- Пароли в plain text
+- Токены доступа
+
+### Всегда проверять:
+- SQL injection защиту
+- XSS защиту
+- CSRF токены
+- Rate limiting на критичных endpoints
+- Input validation
+
+## Производительность
+
+### Оптимизировать:
+- Database queries (избегать N+1)
+- API responses (pagination)
+- Image loading (lazy load)
+- Bundle size (code splitting)
+
+### Мониторить:
+- AI API расходы
+- Database query time
+- API response time
+- Memory usage
+
+## Deployment
+
+### Перед деплоем на production:
+1. Тестирование на staging
+2. Бэкап БД
+3. Проверка миграций
+4. Rollback plan готов
+5. Мониторинг настроен
+6. Документация обновлена
+
+### После деплоя:
+1. Проверить health endpoints
+2. Проверить логи на ошибки
+3. Мониторить метрики 15-30 минут
+4. Проверить критичные функции вручную
+
+## Контакты для эскалации
+
+При критичных проблемах или неясностях в архитектурных решениях:
+1. Активировать Technical Architect Agent для анализа
+2. Проверить существующие ADR в `docs/adr/`
+3. Проверить документацию в `docs/`
+4. Проконсультироваться с командой через issue/PR
+
+---
+
+**Версия**: 1.0.0
+**Последнее обновление**: 2025-10-07
+**Применяется к**: Medical News Automation System

@@ -637,7 +637,8 @@ async def get_articles_with_publication_status(
                 'medvestnik': SourceType.MEDVESTNIK,
                 'aig': SourceType.AIG,
                 'remedium': SourceType.REMEDIUM,
-                'rbc_medical': SourceType.RBC_MEDICAL
+                'rbc_medical': SourceType.RBC_MEDICAL,
+                'url': SourceType.URL
             }
             source_type = source_mapping.get(source.lower())
             if not source_type:

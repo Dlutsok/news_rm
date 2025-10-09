@@ -96,6 +96,11 @@ CREATE TABLE news_generation_drafts (
     generated_image_url VARCHAR(1000),
     generated_tg_post TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'summary_pending',
+    last_error_message TEXT,
+    last_error_step VARCHAR(50),
+    last_error_at DATETIME,
+    can_retry BOOLEAN NOT NULL DEFAULT 1,
+    retry_count INTEGER NOT NULL DEFAULT 0,
     is_published BOOLEAN NOT NULL DEFAULT 0,
     published_project_code VARCHAR(10),
     published_project_name VARCHAR(100),
@@ -116,6 +121,8 @@ CREATE INDEX ix_news_generation_drafts_published_at ON news_generation_drafts (p
 CREATE INDEX ix_news_generation_drafts_scheduled_at ON news_generation_drafts (scheduled_at);
 CREATE INDEX ix_news_generation_drafts_created_by ON news_generation_drafts (created_by);
 CREATE INDEX ix_news_generation_drafts_created_at ON news_generation_drafts (created_at);
+CREATE INDEX ix_news_generation_drafts_last_error_at ON news_generation_drafts (last_error_at);
+CREATE INDEX ix_news_generation_drafts_can_retry ON news_generation_drafts (can_retry);
 ```
 
 **Поля:**
@@ -132,6 +139,11 @@ CREATE INDEX ix_news_generation_drafts_created_at ON news_generation_drafts (cre
 - `generated_image_url` - URL сгенерированного изображения
 - `generated_tg_post` - Анонс для Telegram
 - `status` - Статус обработки (summary_pending, confirmed, generated, scheduled, published)
+- `last_error_message` - Последнее сообщение об ошибке
+- `last_error_step` - Шаг на котором произошла ошибка (generation, image, seo)
+- `last_error_at` - Время последней ошибки
+- `can_retry` - Можно ли повторить операцию
+- `retry_count` - Количество попыток повтора
 - `is_published` - Флаг публикации
 - `published_project_code` - Код проекта публикации (GS, TS, PS)
 - `published_project_name` - Название проекта
@@ -269,6 +281,81 @@ CREATE INDEX ix_publication_logs_bitrix_id ON publication_logs (bitrix_id);
 CREATE INDEX ix_publication_logs_published_at ON publication_logs (published_at);
 ```
 
+### telegram_posts - Telegram посты
+Модель для хранения Telegram постов с настройками генерации.
+
+```sql
+CREATE TABLE telegram_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    news_draft_id INTEGER NOT NULL REFERENCES news_generation_drafts(id),
+    hook_type VARCHAR(50) NOT NULL,
+    disclosure_level VARCHAR(50) NOT NULL,
+    call_to_action VARCHAR(50) NOT NULL,
+    include_image BOOLEAN NOT NULL DEFAULT 1,
+    post_text VARCHAR(2000) NOT NULL,
+    character_count INTEGER NOT NULL DEFAULT 0,
+    is_published BOOLEAN NOT NULL DEFAULT 0,
+    published_at DATETIME,
+    telegram_message_id INTEGER,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now', 'utc', '+3 hours')),
+    updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'utc', '+3 hours')),
+    created_by INTEGER REFERENCES users(id)
+);
+
+CREATE INDEX ix_telegram_posts_news_draft_id ON telegram_posts (news_draft_id);
+CREATE INDEX ix_telegram_posts_hook_type ON telegram_posts (hook_type);
+CREATE INDEX ix_telegram_posts_is_published ON telegram_posts (is_published);
+CREATE INDEX ix_telegram_posts_published_at ON telegram_posts (published_at);
+CREATE INDEX ix_telegram_posts_created_at ON telegram_posts (created_at);
+CREATE INDEX ix_telegram_posts_created_by ON telegram_posts (created_by);
+```
+
+**Поля:**
+- `id` - Уникальный идентификатор поста
+- `news_draft_id` - Связь с черновиком новости
+- `hook_type` - Тип хука (question, shocking_fact, statistics, contradiction)
+- `disclosure_level` - Уровень раскрытия (hint, main_idea, almost_all)
+- `call_to_action` - Призыв к действию (curiosity, urgency, expertise)
+- `include_image` - Включить изображение
+- `post_text` - Текст поста
+- `character_count` - Количество символов
+- `is_published` - Опубликован ли
+- `published_at` - Время публикации
+- `telegram_message_id` - ID сообщения в Telegram
+- `created_at` - Время создания
+- `updated_at` - Время обновления
+- `created_by` - Автор поста
+
+### publications - Таблица публикаций (многие-к-многим)
+Связующая таблица для отслеживания публикаций статей в разных проектах.
+
+```sql
+CREATE TABLE publications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES articles(id),
+    project_code VARCHAR(10) NOT NULL,
+    project_name VARCHAR(100),
+    bitrix_id INTEGER NOT NULL,
+    published_at DATETIME NOT NULL DEFAULT (datetime('now', 'utc', '+3 hours')),
+    published_by INTEGER REFERENCES users(id)
+);
+
+CREATE INDEX ix_publications_article_id ON publications (article_id);
+CREATE INDEX ix_publications_project_code ON publications (project_code);
+CREATE INDEX ix_publications_bitrix_id ON publications (bitrix_id);
+CREATE INDEX ix_publications_published_at ON publications (published_at);
+CREATE INDEX ix_publications_published_by ON publications (published_by);
+```
+
+**Поля:**
+- `id` - Уникальный идентификатор публикации
+- `article_id` - Связь с статьей
+- `project_code` - Код проекта (GS, TS, PS, TEST)
+- `project_name` - Название проекта
+- `bitrix_id` - ID в Bitrix CMS
+- `published_at` - Время публикации
+- `published_by` - Пользователь опубликовавший
+
 ## Конфигурационные таблицы
 
 ### bitrix_project_settings - Настройки проектов Bitrix
@@ -327,11 +414,12 @@ CREATE INDEX ix_app_settings_category ON app_settings (category);
 ### SourceType
 ```python
 class SourceType(str, Enum):
-    RIA = "ria"
-    MEDVESTNIK = "medvestnik"
-    AIG = "aig"
-    REMEDIUM = "remedium"
-    RBC_MEDICAL = "rbc_medical"
+    RIA = "RIA"
+    MEDVESTNIK = "MEDVESTNIK"
+    AIG = "AIG"
+    REMEDIUM = "REMEDIUM"
+    RBC_MEDICAL = "RBC_MEDICAL"
+    URL = "URL"  # Статьи из внешних URL
 ```
 
 ### UserRole
@@ -364,33 +452,43 @@ class NewsStatus(str, Enum):
 ### ExpenseType
 ```python
 class ExpenseType(str, Enum):
-    NEWS_CREATION = "news_creation"      # 40 рублей
-    PHOTO_REGENERATION = "photo_regeneration"  # 10 рублей
-    GPT_MESSAGE = "gpt_message"          # 5 рублей
+    NEWS_CREATION = "news_creation"              # 40 рублей
+    PHOTO_REGENERATION = "photo_regeneration"    # 10 рублей
+    GPT_MESSAGE = "gpt_message"                  # 5 рублей
+    TELEGRAM_POST = "telegram_post"              # 20 рублей
 ```
 
 ## Связи между таблицами
 
 ### Основные связи
 1. `articles` ← `news_generation_drafts` (один ко многим)
-2. `users` ← `news_generation_drafts` (один ко многим)
-3. `users` ← `expenses` (один ко многим)
-4. `articles` ← `expenses` (один ко многим, опционально)
-5. `news_generation_drafts` ← `generation_logs` (один ко многим)
+2. `articles` ← `publications` (один ко многим) - многие-к-многим через publications
+3. `users` ← `news_generation_drafts` (один ко многим)
+4. `users` ← `expenses` (один ко многим)
+5. `users` ← `telegram_posts` (один ко многим)
+6. `users` ← `publications` (один ко многим)
+7. `articles` ← `expenses` (один ко многим, опционально)
+8. `news_generation_drafts` ← `generation_logs` (один ко многим)
+9. `news_generation_drafts` ← `telegram_posts` (один ко многим)
+10. `news_generation_drafts` ← `publication_logs` (один ко многим)
 
 ### Диаграмма связей
 ```
 articles
 ├── news_generation_drafts (article_id)
+├── publications (article_id) - многие-к-многим
 └── expenses (related_article_id)
 
 users
 ├── news_generation_drafts (created_by)
-└── expenses (user_id)
+├── expenses (user_id)
+├── telegram_posts (created_by)
+└── publications (published_by)
 
 news_generation_drafts
 ├── generation_logs (draft_id)
-└── publication_logs (draft_id)
+├── publication_logs (draft_id)
+└── telegram_posts (news_draft_id)
 ```
 
 ## Индексы и производительность

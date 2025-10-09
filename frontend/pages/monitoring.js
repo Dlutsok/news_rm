@@ -84,7 +84,7 @@ function MonitoringContent() {
   }
   
   // Состояние для управления парсингом
-  const [selectedSources, setSelectedSources] = useState(['ria'])
+  const [selectedSources, setSelectedSources] = useState(['RIA'])
   const [articleCount, setArticleCount] = useState(50)
   const [maxScanAllCount, setMaxScanAllCount] = useState(1000)
   const [isScanning, setIsScanning] = useState(false)
@@ -147,11 +147,8 @@ function MonitoringContent() {
       console.log(`Установлен таймаут: ${timeoutMinutes} минут для ${articlesToScan} статей`)
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-      const response = await fetch('/api/news/parse-with-batch-save', {
+      const result = await apiClient.request('/api/news/parse-with-batch-save', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           sources: selectedSources,
           max_articles: scanAll ? maxScanAllCount : articleCount,
@@ -163,33 +160,21 @@ function MonitoringContent() {
 
       clearTimeout(timeoutId)
 
-      // Проверяем, что ответ действительно JSON
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        const textResponse = await response.text()
-        throw new Error(`Сервер вернул не JSON: ${textResponse.substring(0, 200)}...`)
+      // apiClient.request уже проверяет response.ok и выбрасывает ошибку при неудаче
+      setScanResults(result.sources || {})
+
+      let message = `Сканирование завершено!\n`
+      message += `Всего сохранено: ${result.total_saved} новых статей\n`
+      message += `Дубликатов: ${result.total_duplicates}\n`
+
+      if (result.sources) {
+        message += `\nПо источникам:\n`
+        Object.entries(result.sources).forEach(([source, data]) => {
+          message += `• ${source}: ${data.saved} новых, ${data.duplicates} дубликатов\n`
+        })
       }
 
-      const result = await response.json()
-      
-      if (response.ok) {
-        setScanResults(result.sources || {})
-        
-        let message = `Сканирование завершено!\n`
-        message += `Всего сохранено: ${result.total_saved} новых статей\n`
-        message += `Дубликатов: ${result.total_duplicates}\n`
-        
-        if (result.sources) {
-          message += `\nПо источникам:\n`
-          Object.entries(result.sources).forEach(([source, data]) => {
-            message += `• ${source}: ${data.saved} новых, ${data.duplicates} дубликатов\n`
-          })
-        }
-        
-        alert(message)
-      } else {
-        alert(`Ошибка сканирования: ${result.detail || 'Неизвестная ошибка'}`)
-      }
+      alert(message)
     } catch (error) {
       console.error('Scanning error:', error)
       console.error('Error name:', error.name)
@@ -406,35 +391,35 @@ function MonitoringContent() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {[
                   {
-                    key: 'ria',
+                    key: 'RIA',
                     name: 'РИА Новости',
                     domain: 'ria.ru',
                     description: 'Федеральное информационное агентство',
                     icon: HiOutlineNewspaper
                   },
                   {
-                    key: 'medvestnik',
+                    key: 'MEDVESTNIK',
                     name: 'Медвестник',
                     domain: 'medvestnik.ru',
                     description: 'Медицинские новости и исследования',
                     icon: HiOutlineBuildingOffice2
                   },
                   {
-                    key: 'aig',
+                    key: 'AIG',
                     name: 'AIG Journal',
                     domain: 'aig-journal.ru',
                     description: 'Акушерство, гинекология и репродуктология',
                     icon: HiOutlineHeart
                   },
                   {
-                    key: 'remedium',
+                    key: 'REMEDIUM',
                     name: 'Remedium',
                     domain: 'remedium.ru',
                     description: 'Медицинский портал для специалистов',
                     icon: HiOutlineBeaker
                   },
                   {
-                    key: 'rbc_medical',
+                    key: 'RBC_MEDICAL',
                     name: 'РБК Медицина',
                     domain: 'rbc.ru/medical',
                     description: 'Медицинские новости РБК',

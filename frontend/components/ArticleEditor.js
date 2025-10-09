@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { FaExpand, FaCompress, FaTag } from 'react-icons/fa';
+import { FaExpand, FaCompress, FaTag, FaUpload } from 'react-icons/fa';
 import {
   SaveIcon,
   ViewIcon,
@@ -23,11 +23,11 @@ const ReactQuill = dynamic(() => import('react-quill'), {
   </div>
 });
 
-const ArticleEditor = ({ 
-  isOpen, 
-  onClose, 
-  articleData, 
-  onSave, 
+const ArticleEditor = ({
+  isOpen,
+  onClose,
+  articleData,
+  onSave,
   onPreview,
   onRegenerateImage,
   onPublish,
@@ -43,13 +43,15 @@ const ArticleEditor = ({
     image_prompt: '',
     image_url: ''
   });
-  
+
   const [keywordInput, setKeywordInput] = useState('');
   const [isRegeneratingImage, setIsRegeneratingImage] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const lastSavedRef = useRef(null);
   const editorContainerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Интеграция с автосохранением
   const draftId = articleData?.draft_id || articleData?.id;
@@ -278,6 +280,64 @@ const ArticleEditor = ({
     }
   };
 
+  // Обработчик загрузки пользовательского изображения
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверка типа файла
+    if (!file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите файл изображения');
+      return;
+    }
+
+    // Проверка размера файла (макс 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('Размер файла не должен превышать 10 МБ');
+      return;
+    }
+
+    setIsUploadingImage(true);
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('file', file);
+
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formDataToSend,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Ошибка загрузки изображения');
+      }
+
+      const data = await response.json();
+
+      // Обновляем URL изображения
+      handleInputChange('image_url', data.image_url);
+      setHasChanges(true);
+
+      // Очищаем input для возможности повторной загрузки того же файла
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки изображения:', error);
+      alert(error.message || 'Не удалось загрузить изображение. Попробуйте еще раз.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Обработчик клика по кнопке загрузки
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   // Горячие клавиши: Cmd/Ctrl+S для сохранения, Esc — закрыть
   useEffect(() => {
     const handler = (e) => {
@@ -463,15 +523,30 @@ const ArticleEditor = ({
                         <button
                           onClick={handleRegenerateImage}
                           disabled={isRegeneratingImage || !formData.image_prompt.trim()}
-                          className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center"
+                          className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2 whitespace-nowrap"
+                          title="Сгенерировать изображение с помощью AI"
                         >
                           {isRegeneratingImage ? (
                             <LoadingIcon className="animate-spin" />
                           ) : (
                             <ImageIcon />
                           )}
+                          <span className="text-sm">Сгенерировать</span>
                         </button>
                       )}
+                      <button
+                        onClick={handleUploadClick}
+                        disabled={isUploadingImage}
+                        className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2 whitespace-nowrap"
+                        title="Загрузить изображение с компьютера"
+                      >
+                        {isUploadingImage ? (
+                          <LoadingIcon className="animate-spin" />
+                        ) : (
+                          <FaUpload />
+                        )}
+                        <span className="text-sm">Загрузить</span>
+                      </button>
                     </div>
                   </div>
 
@@ -623,15 +698,30 @@ const ArticleEditor = ({
                     <button
                       onClick={handleRegenerateImage}
                       disabled={isRegeneratingImage || !formData.image_prompt.trim()}
-                      className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center"
+                      className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2 whitespace-nowrap"
+                      title="Сгенерировать изображение с помощью AI"
                     >
                       {isRegeneratingImage ? (
                         <LoadingIcon className="animate-spin" />
                       ) : (
                         <ImageIcon />
                       )}
+                      <span className="text-sm">Сгенерировать</span>
                     </button>
                   )}
+                  <button
+                    onClick={handleUploadClick}
+                    disabled={isUploadingImage}
+                    className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2 whitespace-nowrap"
+                    title="Загрузить изображение с компьютера"
+                  >
+                    {isUploadingImage ? (
+                      <LoadingIcon className="animate-spin" />
+                    ) : (
+                      <FaUpload />
+                    )}
+                    <span className="text-sm">Загрузить</span>
+                  </button>
                 </div>
               </div>
 
@@ -668,6 +758,15 @@ const ArticleEditor = ({
           </div>
           )}
           </>
+
+          {/* Hidden file input - доступен в обоих режимах */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
 
           {/* Action Buttons для новости */}
           <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
