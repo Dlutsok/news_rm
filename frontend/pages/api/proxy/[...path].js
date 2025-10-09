@@ -39,9 +39,13 @@ export default async function handler(req, res) {
   const csrfCookie = req.cookies?.csrf_token
 
   // CSRF check for non-idempotent methods
+  // Skip CSRF for multipart/form-data (file uploads)
   // Enforce only if csrf cookie is present; otherwise allow (e.g., unauthenticated dev calls)
   const unsafeMethods = ['POST', 'PUT', 'PATCH', 'DELETE']
-  if (unsafeMethods.includes(req.method)) {
+  const contentType = req.headers['content-type'] || ''
+  const isMultipart = contentType.includes('multipart/form-data')
+  
+  if (unsafeMethods.includes(req.method) && !isMultipart) {
     const headerTokenRaw = req.headers['x-csrf-token'] || req.headers['X-CSRF-Token']
     const normalize = (v) => {
       try { return decodeURIComponent(String(v || '')) } catch { return String(v || '') }
