@@ -1,3 +1,14 @@
+import { Readable } from 'stream'
+
+// Отключаем body parser полностью для поддержки больших файлов
+export const config = {
+  api: {
+    bodyParser: false,
+    sizeLimit: '50mb',
+    responseLimit: '50mb'
+  }
+}
+
 export default async function handler(req, res) {
   const API_BASE_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   
@@ -48,9 +59,13 @@ export default async function handler(req, res) {
   if (token) headers.set('authorization', `Bearer ${token}`)
 
   const init = { method: req.method, headers }
+  
+  // Для POST/PUT/PATCH/DELETE прокидываем body как stream (для поддержки multipart/form-data)
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {})
-    init.body = body
+    // Преобразуем Node.js IncomingMessage в Web ReadableStream
+    init.body = Readable.toWeb(req)
+    // Устанавливаем дуплексный режим для streaming
+    init.duplex = 'half'
   }
 
   try {
