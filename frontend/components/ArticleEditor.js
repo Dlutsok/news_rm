@@ -304,7 +304,7 @@ const ArticleEditor = ({
       const formDataToSend = new FormData();
       formDataToSend.append('file', file);
 
-      const response = await fetch('/api/upload-image', {
+      const response = await fetch('/api/proxy/api/images/upload', {
         method: 'POST',
         body: formDataToSend,
         credentials: 'include'
