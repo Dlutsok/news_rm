@@ -61,7 +61,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./chat_history.db:/app/chat_service/chat_history.db
-      - ./image_storage:/app/image_service/storage
+      - ./image_storage:/app/storage/images
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped
