@@ -271,18 +271,19 @@ const URLNewsInput = ({ onArticleLoaded, onDraftGenerated, onGenerationStarted }
   const handleRegenerateImage = async () => {
     try {
       setIsGenerating(true)
-      const response = await apiClient.request(`/api/news-generation/regenerate-image`, {
+      const response = await apiClient.request('/api/news-generation/regenerate-image', {
         method: 'POST',
-        data: {
-          draft_id: draftId
-        }
+        body: JSON.stringify({
+          draft_id: draftId,
+          new_prompt: null  // Backend использует существующий промпт из черновика
+        })
       })
       
       setGeneratedArticle(prev => ({
         ...prev,
         image_url: response.image_url
       }))
-      alert('Изображение успешно регенерировано!')
+      // Уведомление убрано - изображение обновляется автоматически
     } catch (err) {
       console.error('Error regenerating image:', err)
       alert('Ошибка при регенерации изображения: ' + err.message)
