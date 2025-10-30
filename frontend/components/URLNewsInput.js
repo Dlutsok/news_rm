@@ -271,8 +271,11 @@ const URLNewsInput = ({ onArticleLoaded, onDraftGenerated, onGenerationStarted }
   const handleRegenerateImage = async () => {
     try {
       setIsGenerating(true)
-      const response = await apiClient.request(`/api/news-generation/drafts/${draftId}/regenerate-image`, {
+      const response = await apiClient.request(`/api/news-generation/regenerate-image`, {
         method: 'POST',
+        data: {
+          draft_id: draftId
+        }
       })
       
       setGeneratedArticle(prev => ({
