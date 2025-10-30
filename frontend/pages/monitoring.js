@@ -564,34 +564,6 @@ function MonitoringContent() {
                 onDraftGenerated={handleURLDraftGenerated}
                 onGenerationStarted={handleURLGenerationStarted}
               />
-
-              {/* Список загруженных URL-статей */}
-              {urlArticles.length > 0 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Загруженные статьи ({urlArticles.length})
-                    </h3>
-                    {urlArticles.some(entry => entry.isNew) && (
-                      <span className="text-sm text-purple-600 font-medium animate-pulse">
-                        Есть новые статьи!
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    {urlArticles.map(entry => (
-                      <URLArticleCard
-                        key={entry.id}
-                        entry={entry}
-                        onGenerationStart={handleURLGenerationStarted}
-                        onDraftGenerated={handleURLDraftGenerated}
-                        onDelete={handleDeleteURLArticle}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>

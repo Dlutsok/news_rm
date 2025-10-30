@@ -47,30 +47,62 @@ YC_API_KEY = os.getenv("YC_API_KEY", "")
 
 
 def sanitize_prompt(raw: str) -> str:
-    """Очистка промпта от нежелательных слов (только стилистические термины)"""
+    """
+    Очистка промпта от нежелательных слов, которые могут привести к нереалистичным изображениям.
+    Удаляются стилистические термины, указывающие на иллюстрации, мультипликацию, CGI и т.д.
+    """
     banned = [
+        # Иллюстрация и графика
         "иллюстрация",
         "иллюстративный",
         "рисунок",
+        "нарисованный",
+        "графика",
+        "схема",
+        "схематичный",
+        "диаграмма",
+        # Мультипликация и анимация
         "мультяш",
+        "мультик",
         "cartoon",
+        "анимация",
+        "аниме",
+        "комикс",
+        "manga",
+        # Векторная и плоская графика
         "vector",
         "flat",
-        "аниме",
-        "анимация",
-        "комикс",
+        "flat design",
+        "векторный",
+        # 3D и CGI
         "3d",
         "3D",
         "cgi",
         "CGI",
         "рендер",
         "render",
+        "rendered",
         "low poly",
+        "полигональный",
+        # Стили, которые не подходят для реализма
         "pixar",
+        "disney",
+        "dreamworks",
+        "абстракт",
+        "abstract",
+        "сюрреализм",
+        "surreal",
+        "фантазия",
+        "fantasy",
+        "sci-fi",
+        "научная фантастика",
     ]
     cleaned = raw or ""
     for token in banned:
-        cleaned = cleaned.replace(token, "")
+        # Используем case-insensitive замену
+        cleaned = cleaned.replace(token.lower(), "")
+        cleaned = cleaned.replace(token.capitalize(), "")
+        cleaned = cleaned.replace(token.upper(), "")
     return cleaned.strip()
 
 
@@ -120,14 +152,14 @@ async def generate_image(
 
         # Подготовка промпта
         prompt_ru = sanitize_prompt(body.prompt)
+
+        # Улучшенный enhanced_prompt для медицинских изображений
+        # Менее перегруженный, более сфокусированный на реализме и медицинском контексте
         enhanced_prompt = (
-            f"Фотореалистичная фотография: {prompt_ru}. "
-            "Снято камерой Canon EOS или Nikon, естественное дневное освещение, "
-            "реальная земная обстановка, подлинные материалы и текстуры. "
-            "Документальный стиль, как в National Geographic, реальные физические объекты, "
-            "обычная земная среда, достоверные пропорции и перспектива. "
-            "Photo taken on Earth, realistic lighting and shadows, authentic human environments, "
-            "natural physics, real-world materials, documentary photography style."
+            f"Фотореалистичное медицинское изображение: {prompt_ru}. "
+            "Профессиональная фотография, реалистичное освещение, естественные цвета и текстуры. "
+            "Четкие детали, реальные объекты, документальный стиль медицинской фотографии. "
+            "High-quality medical photography, realistic materials, natural lighting, authentic textures."
         )
 
         logger.info(f"Генерируем изображение для пользователя {current_user.username if current_user else 'anonymous'}: {prompt_ru[:100]}...")

@@ -11,12 +11,13 @@ export const config = {
 
 export default async function handler(req, res) {
   const API_BASE_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-  
-  console.log('Proxy API_BASE_URL:', API_BASE_URL)
+
+  console.log('🔶 [Proxy] Входящий запрос:', req.method, req.url)
 
   // Compose backend endpoint path
   const { path = [] } = req.query
   const endpointPath = '/' + (Array.isArray(path) ? path.join('/') : path)
+  console.log('🔶 [Proxy] Endpoint path:', endpointPath)
   
 
   // Allow proxying backend auth endpoints; only avoid proxying to our own proxy
@@ -44,7 +45,14 @@ export default async function handler(req, res) {
   const unsafeMethods = ['POST', 'PUT', 'PATCH', 'DELETE']
   const contentType = req.headers['content-type'] || ''
   const isMultipart = contentType.includes('multipart/form-data')
-  
+
+  console.log('🔶 [Proxy] CSRF Check:', {
+    method: req.method,
+    isUnsafe: unsafeMethods.includes(req.method),
+    isMultipart,
+    hasCsrfCookie: !!csrfCookie,
+  })
+
   if (unsafeMethods.includes(req.method) && !isMultipart) {
     const headerTokenRaw = req.headers['x-csrf-token'] || req.headers['X-CSRF-Token']
     const normalize = (v) => {
@@ -52,7 +60,15 @@ export default async function handler(req, res) {
     }
     const headerToken = normalize(headerTokenRaw)
     const cookieToken = normalize(csrfCookie)
+
+    console.log('🔶 [Proxy] CSRF Tokens:', {
+      headerToken: headerToken ? 'exists' : 'missing',
+      cookieToken: cookieToken ? 'exists' : 'missing',
+      match: headerToken === cookieToken
+    })
+
     if (csrfCookie && (!headerToken || headerToken !== cookieToken)) {
+      console.log('🔴 [Proxy] CSRF token invalid! Blocking request.')
       return res.status(403).json({ error: 'CSRF token invalid' })
     }
   }
@@ -62,18 +78,38 @@ export default async function handler(req, res) {
   if (req.headers['accept']) headers.set('accept', req.headers['accept'])
   if (token) headers.set('authorization', `Bearer ${token}`)
 
+  console.log('🔶 [Proxy] Building request to backend:', url.toString())
+
   const init = { method: req.method, headers }
-  
-  // Для POST/PUT/PATCH/DELETE прокидываем body как stream (для поддержки multipart/form-data)
+
+  // Для POST/PUT/PATCH/DELETE прокидываем body
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    // Преобразуем Node.js IncomingMessage в Web ReadableStream
-    init.body = Readable.toWeb(req)
-    // Устанавливаем дуплексный режим для streaming
-    init.duplex = 'half'
+    console.log('🔶 [Proxy] Reading request body...')
+
+    // Для multipart/form-data используем streaming
+    if (isMultipart) {
+      console.log('🔶 [Proxy] Using stream for multipart')
+      init.body = Readable.toWeb(req)
+      init.duplex = 'half'
+    } else {
+      // Для JSON читаем body полностью
+      const chunks = []
+      for await (const chunk of req) {
+        chunks.push(chunk)
+      }
+      const bodyBuffer = Buffer.concat(chunks)
+      console.log('🔶 [Proxy] Body read:', bodyBuffer.length, 'bytes')
+
+      if (bodyBuffer.length > 0) {
+        init.body = bodyBuffer.toString('utf-8')
+      }
+    }
   }
 
+  console.log('🔶 [Proxy] Sending fetch to backend...')
   try {
     const response = await fetch(url.toString(), init)
+    console.log('🔶 [Proxy] Got response from backend:', response.status)
     const contentType = response.headers.get('content-type') || ''
     const status = response.status
 
@@ -90,6 +126,7 @@ export default async function handler(req, res) {
     })
     return res.send(Buffer.from(buf))
   } catch (e) {
+    console.error('🔴 [Proxy] Error:', e)
     return res.status(502).json({ error: 'Proxy error', detail: e?.message })
   }
 }

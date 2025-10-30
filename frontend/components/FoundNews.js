@@ -194,16 +194,19 @@ const FoundNews = ({ selectedPlatform }) => {
   }
 
   const handleProjectSelect = async (project, article) => {
-    console.log('Добавляем статью в проект:', project.name, article.title)
+    console.log('🔵 [1] Добавляем статью в проект:', project.name, article.title)
     setSelectedProject(project)
     setArticleToAdd(article)
     setIsProjectSelectorOpen(false)
     setShowProgressModal(true)
 
-    // Сначала проверяем, есть ли уже существующий черновик для этой статьи и проекта
-    const existingDraft = await checkExistingDraft(article.id, project.type)
+    try {
+      // Сначала проверяем, есть ли уже существующий черновик для этой статьи и проекта
+      console.log('🔵 [2] Проверяем существующий черновик для статьи', article.id, 'проект', project.type)
+      const existingDraft = await checkExistingDraft(article.id, project.type)
+      console.log('🔵 [3] Результат проверки черновика:', existingDraft)
 
-    if (existingDraft) {
+      if (existingDraft) {
       console.log('Найден существующий черновик:', existingDraft.id)
       // Загружаем существующий черновик
       setDraftId(existingDraft.id)
@@ -260,10 +263,22 @@ const FoundNews = ({ selectedPlatform }) => {
         setCurrentStep('summary')
         await startArticleSummarization(project, article)
       }
-    } else {
-      // Черновика нет, создаём новый
-      setCurrentStep('summary')
-      await startArticleSummarization(project, article)
+      } else {
+        // Черновика нет, создаём новый
+        console.log('🔵 [4] Черновика нет, создаём новый - вызываем startArticleSummarization')
+        setCurrentStep('summary')
+        await startArticleSummarization(project, article)
+        console.log('🔵 [5] startArticleSummarization завершён')
+      }
+    } catch (error) {
+      console.error('🔴 [ERROR] Ошибка в handleProjectSelect:', error)
+      console.error('🔴 [ERROR] Тип ошибки:', error.constructor.name)
+      console.error('🔴 [ERROR] Сообщение:', error.message)
+
+      // Показываем ошибку пользователю
+      setShowProgressModal(false)
+      alert(`Ошибка при генерации: ${error.message}`)
+      setIsGenerating(false)
     }
   }
 
@@ -280,10 +295,12 @@ const FoundNews = ({ selectedPlatform }) => {
 
   // Функция для сжатия статьи с помощью GPT-5 (на бэке используется gpt-5-mini)
   const startArticleSummarization = async (project, article) => {
+    console.log('🟢 [startArticleSummarization] Начало генерации выжимки')
     setIsGenerating(true)
     setCurrentStep('summary')
-    
+
     try {
+      console.log('🟢 [startArticleSummarization] Отправляем POST /api/news-generation/summarize')
       const data = await apiClient.request('/api/news-generation/summarize', {
         method: 'POST',
         body: JSON.stringify({

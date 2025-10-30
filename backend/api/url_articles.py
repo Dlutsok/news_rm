@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from sqlmodel import Session
 from typing import Optional
 import logging
+import re
 
 from database.models import (
     NewsGenerationDraft, User, ProjectType,
@@ -76,7 +77,6 @@ async def parse_url_article(
         title = parse_result['domain']  # По умолчанию используем домен
 
         # Пытаемся найти заголовок в markdown
-        import re
         h1_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
         title_match = re.search(r'^Title:\s*(.+)$', content, re.MULTILINE)
 

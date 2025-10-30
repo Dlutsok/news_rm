@@ -338,16 +338,26 @@ async def regenerate_image(
         draft = news_generation_service.get_draft(request.draft_id)
         if not draft:
             raise HTTPException(status_code=404, detail="Черновик не найден")
-        
+
+        # Определяем промпт для использования
+        prompt_to_use = request.new_prompt or draft.generated_image_prompt
+
+        # Проверяем наличие промпта
+        if not prompt_to_use:
+            raise HTTPException(
+                status_code=400,
+                detail="Промпт для изображения не найден. Пожалуйста, укажите промпт."
+            )
+
         # Получаем AI сервис
         ai_service = get_ai_service()
-        
+
         # Засекаем время
         start_time = time.time()
-        
+
         try:
             # Генерируем новое изображение
-            new_image_url, metrics = await ai_service.regenerate_image(request.new_prompt)
+            new_image_url, metrics = await ai_service.regenerate_image(prompt_to_use)
             
             processing_time = time.time() - start_time
             
@@ -355,7 +365,7 @@ async def regenerate_image(
             news_generation_service.update_image_url(
                 draft_id=request.draft_id,
                 new_image_url=new_image_url,
-                new_prompt=request.new_prompt
+                new_prompt=prompt_to_use
             )
             
             # Логируем успешную операцию в фоне
@@ -404,7 +414,7 @@ async def regenerate_image(
 
             return {
                 "image_url": new_image_url,
-                "prompt": request.new_prompt
+                "prompt": prompt_to_use
             }
             
         except Exception as ai_error:
@@ -427,12 +437,12 @@ async def regenerate_image(
             news_generation_service.update_image_url(
                 draft_id=request.draft_id,
                 new_image_url=fallback_image_url,
-                new_prompt=request.new_prompt
+                new_prompt=prompt_to_use
             )
-            
+
             return {
                 "image_url": fallback_image_url,
-                "prompt": request.new_prompt
+                "prompt": prompt_to_use
             }
             
     except HTTPException:

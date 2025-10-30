@@ -55,8 +55,11 @@ class ApiClient {
       ...options,
     };
 
+    console.log('🟡 [apiClient] Отправляем запрос:', options.method || 'GET', finalEndpoint);
+
     try {
       const response = await fetch(finalEndpoint, config);
+      console.log('🟡 [apiClient] Получен ответ:', response.status, response.statusText);
 
       // Если токен не валиден, перенаправляем на логин, но избегаем петли на /login
       if (response.status === 401) {
