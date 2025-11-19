@@ -273,6 +273,56 @@ const PublishedNewsContent = () => {
     }
   }
 
+  // Функция для регенерации изображения в редакторе запланированной статьи
+  const handleRegenerateImageInEditor = async (newPrompt) => {
+    try {
+      const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/)
+      const csrf = match ? decodeURIComponent(match[1]) : null
+
+      const headers = {
+        'Content-Type': 'application/json'
+      }
+
+      if (csrf) {
+        headers['X-CSRF-Token'] = csrf
+        headers['x-csrf-token'] = csrf
+      }
+
+      const response = await fetch('/api/news-generation/regenerate-image', {
+        method: 'POST',
+        credentials: 'include',
+        headers: headers,
+        body: JSON.stringify({
+          draft_id: editModal.draftId,
+          new_prompt: newPrompt || null  // null = использовать существующий промпт из summary
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Ошибка ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      // Обновляем данные в editModal
+      setEditModal(prev => ({
+        ...prev,
+        draftData: {
+          ...prev.draftData,
+          image_url: data.image_url,
+          generated_image_url: data.image_url,
+          image_prompt: data.prompt || prev.draftData.image_prompt
+        }
+      }))
+
+      console.log('Изображение успешно перегенерировано')
+    } catch (err) {
+      console.error('Error regenerating image:', err)
+      alert(`Ошибка при регенерации изображения: ${err.message}`)
+      throw err
+    }
+  }
+
   // Функция для сохранения изменений в редакторе
   const handleSaveEdit = async (updatedData) => {
     try {
@@ -642,6 +692,7 @@ const PublishedNewsContent = () => {
             onClose={() => setEditModal({ isOpen: false, draftId: null, draftData: null })}
             articleData={editModal.draftData}
             onSave={handleSaveEdit}
+            onRegenerateImage={handleRegenerateImageInEditor}
             publishLabel="Сохранить изменения"
           />
         )}

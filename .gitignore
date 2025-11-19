@@ -225,10 +225,10 @@ Thumbs.db
 *~
 backups/
 
-# Production deployment secrets
-deployed/.env
-deployed/frontend.env
-deployed/*.secret
+# Production deployment - игнорируем папку deployed (используется на сервере)
+deployed/
+!deployed/.gitkeep
+!deployed/README.md
 
 # Images and storage
 backend/storage/images/*
