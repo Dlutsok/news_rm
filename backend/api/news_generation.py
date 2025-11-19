@@ -332,22 +332,15 @@ async def regenerate_image(
 ):
     """
     Перегенерация изображения для статьи
+
+    Всегда генерирует новый уникальный промпт через GPT-4o-mini на основе выжимки статьи,
+    если пользователь не указал свой кастомный промпт.
     """
     try:
         # Получаем черновик
         draft = news_generation_service.get_draft(request.draft_id)
         if not draft:
             raise HTTPException(status_code=404, detail="Черновик не найден")
-
-        # Определяем промпт для использования
-        prompt_to_use = request.new_prompt or draft.generated_image_prompt
-
-        # Проверяем наличие промпта
-        if not prompt_to_use:
-            raise HTTPException(
-                status_code=400,
-                detail="Промпт для изображения не найден. Пожалуйста, укажите промпт."
-            )
 
         # Получаем AI сервис
         ai_service = get_ai_service()
@@ -356,7 +349,35 @@ async def regenerate_image(
         start_time = time.time()
 
         try:
-            # Генерируем новое изображение
+            # Определяем промпт для использования
+            if request.new_prompt:
+                # Пользователь вручную указал промпт - используем его
+                prompt_to_use = request.new_prompt
+                logger.info(f"Using custom prompt for image regeneration: {prompt_to_use[:100]}...")
+            else:
+                # Генерируем новый уникальный промпт через GPT-4o-mini
+                # На основе выжимки и заголовка статьи
+                if not draft.summary:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Выжимка статьи не найдена. Невозможно сгенерировать промпт."
+                    )
+
+                # Получаем заголовок статьи
+                from database.connection import DatabaseSession
+                from database.models import Article
+                with DatabaseSession() as db_session:
+                    article = db_session.get(Article, draft.article_id)
+                    article_title = article.title if article else draft.generated_seo_title or "Медицинская статья"
+
+                logger.info(f"Generating new image prompt via GPT-4o-mini for draft {request.draft_id}...")
+                prompt_to_use = await ai_service.generate_image_prompt(
+                    summary=draft.summary,
+                    article_title=article_title
+                )
+                logger.info(f"Generated new image prompt: {prompt_to_use[:100]}...")
+
+            # Генерируем новое изображение с полученным промптом
             new_image_url, metrics = await ai_service.regenerate_image(prompt_to_use)
             
             processing_time = time.time() - start_time
