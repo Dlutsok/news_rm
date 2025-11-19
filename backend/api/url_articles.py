@@ -147,7 +147,7 @@ async def generate_article_from_url(
 
     1. Парсит контент через Jina AI Reader
     2. Генерирует профессиональную медицинскую статью через GPT
-    3. Создает изображение через YandexART (опционально)
+    3. Создает изображение через KIE AI Nano Banana (Google Gemini 2.5 Flash) (опционально)
     4. Сохраняет как черновик в БД
     """
     try:

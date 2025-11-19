@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Backend (FastAPI)
 - **Python 3.11+** with FastAPI, SQLModel, Alembic
 - **PostgreSQL 14+** with pgvector extension (for RAG/embeddings)
-- **AI Services**: OpenAI GPT-4, Yandex Cloud ML (image generation), Sentence Transformers
+- **AI Services**: OpenAI GPT-4, KIE AI Nano Banana (Google Gemini 2.5 Flash for image generation), Sentence Transformers
 - **Authentication**: JWT tokens with HttpOnly cookies, CSRF protection
 - **News Sources**: Medvestnik, RIA, AIG, Remedium, RBC Medical parsers
 
@@ -126,7 +126,7 @@ backend/
 │   ├── users.py          # User management (admin/staff/analyst roles)
 │   ├── news.py           # News parsing, articles CRUD
 │   ├── news_generation.py # AI article generation
-│   ├── image_generation.py # Yandex Cloud image generation
+│   ├── image_generation.py # KIE AI Nano Banana image generation
 │   ├── telegram_posts.py  # Telegram publishing
 │   ├── url_articles.py    # Parse & generate from URL
 │   └── settings.py        # App settings management

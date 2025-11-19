@@ -177,9 +177,31 @@ class AIService:
                 content = content[7:-3].strip()
             elif content.startswith("```"):
                 content = content[3:-3].strip()
-                
-            result_data = json.loads(content)
-            
+
+            # Парсинг JSON с обработкой ошибок
+            try:
+                result_data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {str(e)}")
+                logger.error(f"Response content: {content}")
+
+                # Попытка исправить JSON
+                try:
+                    fixed_content = re.sub(r'"\s*\n\s*"', '",\n  "', content)
+                    fixed_content = re.sub(r'}\s*\n\s*"', '},\n  "', fixed_content)
+                    fixed_content = re.sub(r']\s*\n\s*"', '],\n  "', fixed_content)
+
+                    # Добавляем закрывающую скобку если отсутствует
+                    fixed_content = fixed_content.strip()
+                    if not fixed_content.endswith('}'):
+                        fixed_content += '\n}'
+                        logger.info("Added missing closing brace to JSON")
+
+                    result_data = json.loads(fixed_content)
+                    logger.info("Successfully fixed JSON in summarize_article")
+                except json.JSONDecodeError:
+                    raise Exception(f"Ошибка парсинга ответа AI: {str(e)}")
+
             # Создаем объект ArticleSummary
             summary = ArticleSummary(
                 summary=result_data["summary"],
@@ -196,14 +218,9 @@ class AIService:
             }
             
             logger.info(f"Article summarized successfully. Tokens: {response.get('usage', {}).get('total_tokens', 0)}, Time: {processing_time:.2f}s")
-            
+
             return summary, metrics
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
-            logger.error(f"Response content: {content}")
-            raise Exception(f"Ошибка парсинга ответа AI: {str(e)}")
-            
+
         except Exception as e:
             processing_time = time.time() - start_time
             logger.error(f"Error in summarize_article: {e}")
@@ -1114,11 +1131,42 @@ GOOD (сохранить): Заголовок и основной текст с�
             elif content.startswith("```"):
                 content = content[3:-3].strip()
 
-            result_data = json.loads(content)
+            # Парсинг JSON с обработкой ошибок
+            try:
+                result_data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {str(e)}")
+                logger.error(f"Response content: {content}")
 
-            # Генерируем изображение
-            image_url = await self._generate_image(result_data["image_prompt"])
+                # Попытка исправить JSON
+                try:
+                    fixed_content = re.sub(r'"\s*\n\s*"', '",\n  "', content)
+                    fixed_content = re.sub(r'}\s*\n\s*"', '},\n  "', fixed_content)
+                    fixed_content = re.sub(r']\s*\n\s*"', '],\n  "', fixed_content)
+
+                    # Добавляем закрывающую скобку если отсутствует
+                    fixed_content = fixed_content.strip()
+                    if not fixed_content.endswith('}'):
+                        fixed_content += '\n}'
+                        logger.info("Added missing closing brace to JSON")
+
+                    result_data = json.loads(fixed_content)
+                    logger.info("Successfully fixed JSON in generate_article_from_external_content")
+                except json.JSONDecodeError:
+                    raise Exception(f"Ошибка парсинга ответа AI: {str(e)}")
+
+            # Генерируем профессиональный промпт для изображения через GPT-4o-mini
+            # Используем seo_title и seo_description из сгенерированной статьи
+            logger.info("Generating image prompt via GPT-4o-mini...")
+            image_prompt = await self.generate_image_prompt(
+                result_data["seo_description"],
+                result_data["seo_title"]
+            )
+
+            # Генерируем изображение по полученному промпту
+            image_url = await self._generate_image(image_prompt)
             result_data["image_url"] = image_url
+            result_data["image_prompt"] = image_prompt  # Сохраняем для отображения
 
             # Проверяем длину
             clean_text = re.sub(r'<[^>]*>', '', result_data["news_text"])
@@ -1153,11 +1201,6 @@ GOOD (сохранить): Заголовок и основной текст с�
             logger.info(f"Article generated from URL {source_url}: {text_length} clean characters. Tokens: {response.get('usage', {}).get('total_tokens', 0)}, Time: {processing_time:.2f}s")
 
             return article, metrics
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
-            logger.error(f"Response content: {content}")
-            raise Exception(f"Ошибка парсинга ответа AI: {str(e)}")
 
         except Exception as e:
             processing_time = time.time() - start_time
@@ -1525,22 +1568,35 @@ GOOD (сохранить): Заголовок и основной текст с�
                 logger.error(f"Failed to parse JSON response: {str(e)}")
                 logger.error(f"Response content: {content}")
                 
-                # Попытка исправить отсутствующие запятые
+                # Попытка исправить отсутствующие запятые и закрывающие скобки
                 try:
                     # Исправляем отсутствующие запятые между полями JSON
                     fixed_content = re.sub(r'"\s*\n\s*"', '",\n  "', content)
                     fixed_content = re.sub(r'}\s*\n\s*"', '},\n  "', fixed_content)
                     fixed_content = re.sub(r']\s*\n\s*"', '],\n  "', fixed_content)
-                    
+
+                    # Проверяем, что JSON заканчивается на закрывающую скобку
+                    fixed_content = fixed_content.strip()
+                    if not fixed_content.endswith('}'):
+                        # Добавляем закрывающую скобку, если она отсутствует
+                        fixed_content += '\n}'
+                        logger.info("Added missing closing brace to JSON")
+
                     result_data = json.loads(fixed_content)
-                    logger.info("Successfully fixed JSON by adding missing commas")
+                    logger.info("Successfully fixed JSON by adding missing commas/braces")
                 except json.JSONDecodeError:
                     # Если исправление не помогло, выбрасываем исходную ошибку
                     raise Exception(f"Invalid JSON response from AI: {str(e)}")
             
-            # Генерируем изображение (включено обратно для реалистичных медицинских фото)
-            image_url = await self._generate_image(result_data["image_prompt"])
+            # Генерируем профессиональный промпт для изображения через GPT-4o-mini
+            # На основе выжимки создаем уникальный английский промпт для Gemini
+            logger.info("Generating image prompt via GPT-4o-mini...")
+            image_prompt = await self.generate_image_prompt(summary, original_title)
+
+            # Генерируем изображение по полученному промпту
+            image_url = await self._generate_image(image_prompt)
             result_data["image_url"] = image_url
+            result_data["image_prompt"] = image_prompt  # Сохраняем для отображения
             
             # Проверяем длину сгенерированной статьи
             # Подсчитываем длину чистого текста (без HTML тегов)
@@ -1631,12 +1687,7 @@ GOOD (сохранить): Заголовок и основной текст с�
                 logger.info(f"News generated successfully: {text_length} clean characters (target {target_length}, acceptable range). Tokens: {tokens_used}, Time: {processing_time:.2f}s")
             
             return article, metrics
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
-            logger.error(f"Response content: {content}")
-            raise Exception(f"Ошибка парсинга ответа AI: {str(e)}")
-            
+
         except Exception as e:
             processing_time = time.time() - start_time
             logger.error(f"Error in generate_full_article: {e}")
@@ -1696,13 +1747,84 @@ GOOD (сохранить): Заголовок и основной текст с�
 
         return "\n".join(instructions)
 
+    async def generate_image_prompt(self, summary: str, article_title: str) -> str:
+        """
+        Генерация профессионального промпта для изображения на основе выжимки статьи
+        Использует GPT-4o-mini для создания детального английского промпта для Gemini
+
+        Args:
+            summary: Текст выжимки статьи
+            article_title: Заголовок статьи
+
+        Returns:
+            Профессиональный промпт на английском языке для генерации изображения
+        """
+        system_prompt = """You are a professional medical image prompt engineer for AI image generation (Gemini 2.5 Flash).
+
+Your task is to create detailed, professional English prompts for generating realistic medical/healthcare images based on article summaries.
+
+CRITICAL REQUIREMENTS:
+✅ Write ONLY in English (never Russian or other languages)
+✅ Focus on photorealistic, documentary-style medical imagery
+✅ Use professional medical terminology
+✅ Describe lighting, composition, and atmosphere
+✅ Specify "professional medical photography" style
+✅ Keep prompts concise but descriptive (2-4 sentences)
+✅ Avoid: cartoon, illustration, 3D render, abstract, fantasy, sci-fi
+
+GOOD PROMPT STRUCTURE:
+1. Main subject (doctor, patient, medical equipment, procedure)
+2. Setting (hospital, clinic, lab, modern medical facility)
+3. Lighting and mood (natural light, professional lighting, clean, bright)
+4. Technical details (close-up, wide shot, documentary style)
+5. Quality markers (photorealistic, high detail, professional medical photography)
+
+EXAMPLE INPUT: "Статья о новом методе лечения диабета с помощью инсулиновой помпы"
+EXAMPLE OUTPUT: "Professional medical photography of a modern insulin pump attached to a patient's body in a bright hospital room. Close-up shot showing the device details, natural lighting from window, clean white medical environment. Photorealistic, documentary style, suitable for medical education website, 16:9 aspect ratio."
+
+Remember: The image should illustrate the article's medical topic professionally and realistically."""
+
+        user_prompt = f"""Create a professional English prompt for generating a medical image based on this article:
+
+TITLE: {article_title}
+
+SUMMARY: {summary}
+
+Generate a detailed English prompt (2-4 sentences) for creating a photorealistic medical image that captures the essence of this article. The image should be suitable for a professional medical education website."""
+
+        try:
+            response = await self.provider.get_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model="gpt-4o-mini",
+                temperature=0.7,
+                max_tokens=200
+            )
+
+            image_prompt = response["content"].strip()
+
+            # Убираем кавычки если есть
+            image_prompt = image_prompt.strip('"').strip("'")
+
+            logger.info(f"Generated image prompt: {image_prompt[:100]}...")
+            return image_prompt
+
+        except Exception as e:
+            logger.error(f"Error generating image prompt: {e}")
+            # Fallback промпт на английском
+            fallback = f"Professional medical photography related to {article_title}. Clean hospital setting, natural lighting, photorealistic, documentary style, 16:9 aspect ratio."
+            logger.warning(f"Using fallback image prompt: {fallback}")
+            return fallback
+
     async def _generate_image(self, prompt: str) -> str:
         """
-        Генерация изображения через внешний сервис (YandexART)
-        
+        Генерация изображения через KIE AI (Nano Banana - Google Gemini 2.5 Flash)
+
         Args:
             prompt: Промпт для генерации изображения
-            
+
         Returns:
             str: URL сгенерированного изображения
         """
@@ -1718,7 +1840,7 @@ GOOD (сохранить): Заголовок и основной текст с�
                     image_url = data.get("image_url")
                     if not image_url:
                         raise RuntimeError("Image service returned no image_url")
-                    logger.info(f"Image generated successfully via YandexART service: {image_url}")
+                    logger.info(f"Image generated successfully via KIE AI service: {image_url}")
                     return image_url
         except Exception as e:
             logger.error(f"Error generating image via service: {e}")
@@ -1741,7 +1863,7 @@ GOOD (сохранить): Заголовок и основной текст с�
             
             processing_time = time.time() - start_time
             metrics = {
-                "model_used": "yandex-art",
+                "model_used": "kie-nano-banana",
                 "tokens_used": 0,
                 "processing_time_seconds": processing_time,
                 "success": True
@@ -1752,9 +1874,9 @@ GOOD (сохранить): Заголовок и основной текст с�
         except Exception as e:
             processing_time = time.time() - start_time
             logger.error(f"Error in regenerate_image: {e}")
-            
+
             metrics = {
-                "model_used": "yandex-art",
+                "model_used": "kie-nano-banana",
                 "tokens_used": 0,
                 "processing_time_seconds": processing_time,
                 "success": False,

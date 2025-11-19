@@ -373,7 +373,7 @@ async def regenerate_image(
                 log_success_background,
                 request.draft_id,
                 "image_regeneration",
-                "yandex-art",
+                "kie-nano-banana",
                 processing_time
             )
             
@@ -425,7 +425,7 @@ async def regenerate_image(
                 log_error_background_draft,
                 request.draft_id,
                 "image_regeneration",
-                "yandex-art",
+                "kie-nano-banana",
                 processing_time,
                 str(ai_error)
             )

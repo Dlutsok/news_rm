@@ -11,28 +11,20 @@ from pydantic import BaseModel, Field
 from core.config import settings
 from api.dependencies import get_current_user_optional, get_current_user
 from database.models import User
+from services.kie_image_client import get_kie_client
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-try:
-    from yandex_cloud_ml_sdk import YCloudML
-except ImportError as e:
-    YCloudML = None
-    logger.warning(f"yandex-cloud-ml-sdk не установлен: {e}")
-
 
 class GenerateImageRequest(BaseModel):
     prompt: str = Field(..., description="Текстовый промпт для генерации изображения")
-    width_ratio: Optional[int] = Field(1, description="Отношение ширины (1-2)")
-    height_ratio: Optional[int] = Field(1, description="Отношение высоты (1-2)")
-    seed: Optional[int] = Field(None, description="Сид для детерминированности")
 
 
 class GenerateImageResponse(BaseModel):
     image_url: str
-    model_used: str = "yandex-art"
+    model_used: str = "kie-nano-banana"
     success: bool = True
     message: str = "Изображение успешно сгенерировано"
 
@@ -41,70 +33,6 @@ class GenerateImageResponse(BaseModel):
 STORAGE_DIR = Path(settings.BASE_DIR) / "storage" / "images"
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Yandex Cloud настройки
-YC_FOLDER_ID = os.getenv("YC_FOLDER_ID", "")
-YC_API_KEY = os.getenv("YC_API_KEY", "")
-
-
-def sanitize_prompt(raw: str) -> str:
-    """
-    Очистка промпта от нежелательных слов, которые могут привести к нереалистичным изображениям.
-    Удаляются стилистические термины, указывающие на иллюстрации, мультипликацию, CGI и т.д.
-    """
-    banned = [
-        # Иллюстрация и графика
-        "иллюстрация",
-        "иллюстративный",
-        "рисунок",
-        "нарисованный",
-        "графика",
-        "схема",
-        "схематичный",
-        "диаграмма",
-        # Мультипликация и анимация
-        "мультяш",
-        "мультик",
-        "cartoon",
-        "анимация",
-        "аниме",
-        "комикс",
-        "manga",
-        # Векторная и плоская графика
-        "vector",
-        "flat",
-        "flat design",
-        "векторный",
-        # 3D и CGI
-        "3d",
-        "3D",
-        "cgi",
-        "CGI",
-        "рендер",
-        "render",
-        "rendered",
-        "low poly",
-        "полигональный",
-        # Стили, которые не подходят для реализма
-        "pixar",
-        "disney",
-        "dreamworks",
-        "абстракт",
-        "abstract",
-        "сюрреализм",
-        "surreal",
-        "фантазия",
-        "fantasy",
-        "sci-fi",
-        "научная фантастика",
-    ]
-    cleaned = raw or ""
-    for token in banned:
-        # Используем case-insensitive замену
-        cleaned = cleaned.replace(token.lower(), "")
-        cleaned = cleaned.replace(token.capitalize(), "")
-        cleaned = cleaned.replace(token.upper(), "")
-    return cleaned.strip()
-
 
 @router.get("/health")
 async def image_service_health():
@@ -112,7 +40,8 @@ async def image_service_health():
     return {
         "status": "healthy",
         "service": "image-generation",
-        "yandex_cloud_available": YCloudML is not None and bool(YC_FOLDER_ID and YC_API_KEY)
+        "provider": "kie-nano-banana",
+        "api_key_configured": bool(settings.KIE_API_KEY)
     }
 
 
@@ -122,58 +51,45 @@ async def generate_image(
     body: GenerateImageRequest,
     current_user: User = Depends(get_current_user_optional)
 ):
-    """Генерация изображения с помощью YandexART"""
+    """
+    Генерация изображения с помощью KIE AI Nano Banana (Google Gemini 2.5 Flash)
+
+    Nano Banana - это передовая AI-модель для генерации медицинских изображений
+    с высокой степенью реалистичности и точности.
+    """
     try:
-        # Проверяем доступность сервиса
-        if YCloudML is None:
+        # Проверяем доступность API ключа
+        if not settings.KIE_API_KEY:
             raise HTTPException(
                 status_code=503,
-                detail="yandex-cloud-ml-sdk не установлен"
+                detail="KIE_API_KEY не настроен. Пожалуйста, добавьте ключ в .env файл."
             )
 
-        if not YC_FOLDER_ID or not YC_API_KEY:
+        # Получаем KIE клиент
+        try:
+            kie_client = get_kie_client()
+        except ValueError as e:
+            logger.error(f"Ошибка инициализации KIE клиента: {e}")
             raise HTTPException(
                 status_code=503,
-                detail="YC_FOLDER_ID или YC_API_KEY не настроены"
+                detail=f"Не удалось инициализировать KIE API клиент: {str(e)}"
             )
 
-        # Инициализация SDK
-        sdk = YCloudML(folder_id=YC_FOLDER_ID, auth=YC_API_KEY)
-        model = sdk.models.image_generation("yandex-art")
+        # Промпт приходит уже готовым (на английском) от generate_image_prompt
+        # Никаких дополнительных модификаций не требуется
+        prompt = body.prompt
 
-        # Настройка соотношения сторон
-        width_ratio = body.width_ratio if body.width_ratio in (1, 2) else 1
-        height_ratio = body.height_ratio if body.height_ratio in (1, 2) else 1
-        model = model.configure(
-            width_ratio=width_ratio,
-            height_ratio=height_ratio,
-            seed=body.seed
-        )
+        username = current_user.username if current_user else 'anonymous'
+        logger.info(f"Генерируем изображение для пользователя {username}: {prompt[:100]}...")
 
-        # Подготовка промпта
-        prompt_ru = sanitize_prompt(body.prompt)
+        # Генерация изображения через KIE AI
+        image_bytes = await kie_client.generate_image(prompt)
 
-        # Улучшенный enhanced_prompt для медицинских изображений
-        # Менее перегруженный, более сфокусированный на реализме и медицинском контексте
-        enhanced_prompt = (
-            f"Фотореалистичное медицинское изображение: {prompt_ru}. "
-            "Профессиональная фотография, реалистичное освещение, естественные цвета и текстуры. "
-            "Четкие детали, реальные объекты, документальный стиль медицинской фотографии. "
-            "High-quality medical photography, realistic materials, natural lighting, authentic textures."
-        )
-
-        logger.info(f"Генерируем изображение для пользователя {current_user.username if current_user else 'anonymous'}: {prompt_ru[:100]}...")
-
-        # Генерация изображения
-        operation = model.run_deferred(enhanced_prompt)
-        result = operation.wait()
-
-        image_bytes = result.image_bytes
         if not image_bytes:
-            raise RuntimeError("Пустой ответ от модели YandexART")
+            raise RuntimeError("Пустой ответ от KIE API")
 
-        # Сохранение файла
-        filename = f"{uuid.uuid4().hex}.jpeg"
+        # Сохранение файла (PNG формат от KIE)
+        filename = f"{uuid.uuid4().hex}.png"
         filepath = STORAGE_DIR / filename
         filepath.write_bytes(image_bytes)
 
@@ -183,8 +99,24 @@ async def generate_image(
 
         logger.info(f"Изображение успешно сгенерировано: {image_url}")
 
-        return GenerateImageResponse(image_url=image_url)
+        return GenerateImageResponse(
+            image_url=image_url,
+            model_used="kie-nano-banana",
+            success=True,
+            message="Изображение успешно сгенерировано через KIE AI"
+        )
 
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # Ошибки валидации (Invalid API key, Insufficient credits, и т.д.)
+        error_msg = f"Ошибка конфигурации KIE API: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=503, detail=error_msg)
+    except TimeoutError as e:
+        error_msg = f"Таймаут при генерации изображения: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=504, detail=error_msg)
     except Exception as e:
         error_msg = f"Ошибка генерации изображения: {str(e)}"
         logger.error(error_msg)
@@ -195,10 +127,14 @@ async def generate_image(
 async def get_generation_status():
     """Получить статус сервиса генерации изображений"""
     return {
-        "sdk_available": YCloudML is not None,
-        "credentials_configured": bool(YC_FOLDER_ID and YC_API_KEY),
+        "provider": "kie-nano-banana",
+        "model": "google/nano-banana (Gemini 2.5 Flash)",
+        "api_key_configured": bool(settings.KIE_API_KEY),
+        "api_base_url": settings.KIE_API_BASE_URL,
+        "timeout": settings.KIE_TIMEOUT,
         "storage_path": str(STORAGE_DIR),
-        "storage_exists": STORAGE_DIR.exists()
+        "storage_exists": STORAGE_DIR.exists(),
+        "cost_per_image": "$0.02 USD"
     }
 
 

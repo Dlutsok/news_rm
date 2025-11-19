@@ -194,18 +194,11 @@ def validate_openai_key(key: str) -> bool:
     return key.startswith('sk-') and len(key) > 20
 
 
-def validate_yandex_key(key: str) -> bool:
-    """Валидатор для Yandex Cloud API ключа"""
+def validate_kie_key(key: str) -> bool:
+    """Валидатор для KIE AI API ключа"""
     if not key.strip():
         return False
     return len(key) > 10  # Простая проверка длины
-
-
-def validate_folder_id(folder_id: str) -> bool:
-    """Валидатор для Yandex Cloud Folder ID"""
-    if not folder_id.strip():
-        return False
-    return len(folder_id) > 10  # Простая проверка длины
 
 
 def validate_boolean_env(value: str) -> bool:
@@ -257,17 +250,23 @@ def create_backend_validator() -> EnvValidator:
         "sk-proj-..."
     )
 
-    # Переменные для генерации изображений (теперь в backend)
+    # Переменные для генерации изображений (KIE AI)
     validator.add_important(
-        "YC_FOLDER_ID",
-        "Yandex Cloud Folder ID для генерации изображений",
+        "KIE_API_KEY",
+        "KIE AI API ключ для генерации изображений (Nano Banana - Google Gemini 2.5 Flash)",
         default_value=None
     )
 
-    validator.add_important(
-        "YC_API_KEY",
-        "Yandex Cloud API ключ для генерации изображений",
-        default_value=None
+    validator.add_optional(
+        "KIE_API_BASE_URL",
+        "KIE AI API base URL",
+        default_value="https://api.kie.ai/api/v1"
+    )
+
+    validator.add_optional(
+        "KIE_TIMEOUT",
+        "Timeout для KIE AI в секундах",
+        default_value="300"
     )
     
     # Важные переменные

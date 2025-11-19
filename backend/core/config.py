@@ -24,7 +24,12 @@ class Settings:
     
     # Прокси для OpenAI (для обхода блокировок РФ)
     OPENAI_PROXY_URL: str = os.getenv("OPENAI_PROXY_URL", "")
-    
+
+    # KIE AI Configuration (Nano Banana - Google Gemini 2.5 Flash для генерации изображений)
+    KIE_API_KEY: str = os.getenv("KIE_API_KEY", "")
+    KIE_API_BASE_URL: str = os.getenv("KIE_API_BASE_URL", "https://api.kie.ai/api/v1")
+    KIE_TIMEOUT: int = int(os.getenv("KIE_TIMEOUT", "300"))  # Timeout в секундах (5 минут)
+
     # База данных
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/news_aggregator")
     
@@ -135,7 +140,7 @@ class Settings:
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
 
-    # Image generation (integrated in backend)
+    # Image generation service URL (for backward compatibility)
     IMAGE_SERVICE_URL: str = os.getenv("IMAGE_SERVICE_URL", "http://localhost:8000")
 
     # Rate Limiting настройки
