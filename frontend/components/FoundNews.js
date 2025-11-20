@@ -235,7 +235,7 @@ const FoundNews = ({ selectedPlatform }) => {
         // Начинаем генерацию статьи
         try {
           const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 минут timeout
+          const timeoutId = setTimeout(() => controller.abort(), 600000) // 10 минут timeout для генерации с изображением
 
           const data = await apiClient.request('/api/news-generation/generate-article', {
             method: 'POST',
@@ -353,8 +353,8 @@ const FoundNews = ({ selectedPlatform }) => {
 
       // Затем генерируем полную статью (с увеличенным timeout для изображений)
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 минут timeout
-      
+      const timeoutId = setTimeout(() => controller.abort(), 600000) // 10 минут timeout для генерации с изображением
+
       try {
         const data = await apiClient.request('/api/news-generation/generate-article', {
           method: 'POST',

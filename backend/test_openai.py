@@ -50,7 +50,7 @@ async def test_openai_simple():
 
     client_kwargs = {"timeout": httpx.Timeout(30.0)}
     if PROXY_URL:
-        client_kwargs['proxy'] = PROXY_URL
+        client_kwargs['proxies'] = PROXY_URL
         print(f"🔗 Используется прокси")
 
     start_time = time.time()
@@ -119,7 +119,7 @@ async def test_openai_summarize():
 
     client_kwargs = {"timeout": httpx.Timeout(60.0)}
     if PROXY_URL:
-        client_kwargs['proxy'] = PROXY_URL
+        client_kwargs['proxies'] = PROXY_URL
         print(f"🔗 Используется прокси")
 
     start_time = time.time()

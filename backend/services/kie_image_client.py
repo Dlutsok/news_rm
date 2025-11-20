@@ -33,8 +33,8 @@ class KieNanoBananaClient:
         self,
         api_key: str,
         base_url: str = "https://api.kie.ai/api/v1",
-        timeout: int = 300,
-        max_poll_attempts: int = 60,
+        timeout: int = 600,
+        max_poll_attempts: int = 120,
         poll_interval: int = 5
     ):
         """
@@ -43,9 +43,9 @@ class KieNanoBananaClient:
         Args:
             api_key: KIE AI API ключ
             base_url: Базовый URL API
-            timeout: Таймаут для HTTP запросов (секунды)
-            max_poll_attempts: Максимальное количество попыток polling
-            poll_interval: Интервал между polling запросами (секунды)
+            timeout: Таймаут для HTTP запросов (секунды) - по умолчанию 600 (10 минут)
+            max_poll_attempts: Максимальное количество попыток polling - по умолчанию 120 (10 минут при интервале 5 сек)
+            poll_interval: Интервал между polling запросами (секунды) - по умолчанию 5
         """
         if not api_key:
             raise ValueError("KIE API key is required")
@@ -372,12 +372,14 @@ def get_kie_client(
     if _kie_client_instance is None:
         api_key = api_key or os.getenv("KIE_API_KEY")
         base_url = base_url or os.getenv("KIE_API_BASE_URL", "https://api.kie.ai/api/v1")
-        timeout = timeout or int(os.getenv("KIE_TIMEOUT", "300"))
+        timeout = timeout or int(os.getenv("KIE_TIMEOUT", "600"))
 
         _kie_client_instance = KieNanoBananaClient(
             api_key=api_key,
             base_url=base_url,
-            timeout=timeout
+            timeout=timeout,
+            max_poll_attempts=120,  # 10 минут при интервале 5 сек
+            poll_interval=5
         )
 
     return _kie_client_instance

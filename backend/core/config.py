@@ -28,7 +28,7 @@ class Settings:
     # KIE AI Configuration (Nano Banana - Google Gemini 2.5 Flash для генерации изображений)
     KIE_API_KEY: str = os.getenv("KIE_API_KEY", "")
     KIE_API_BASE_URL: str = os.getenv("KIE_API_BASE_URL", "https://api.kie.ai/api/v1")
-    KIE_TIMEOUT: int = int(os.getenv("KIE_TIMEOUT", "300"))  # Timeout в секундах (5 минут)
+    KIE_TIMEOUT: int = int(os.getenv("KIE_TIMEOUT", "600"))  # Timeout в секундах (10 минут - для медленной генерации)
 
     # База данных
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/news_aggregator")

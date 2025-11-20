@@ -6,6 +6,8 @@ import json
 import re
 import time
 import logging
+import os
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 from models.schemas import ArticleSummary, GeneratedArticle, ProjectType
@@ -13,6 +15,7 @@ from pydantic import BaseModel
 from core.config import settings
 from services.settings_service import settings_service
 from services.ai_provider import get_openai_provider
+from services.kie_image_client import get_kie_client
 
 logger = logging.getLogger(__name__)
 
@@ -1829,21 +1832,34 @@ Generate a detailed English prompt (2-4 sentences) for creating a photorealistic
             str: URL сгенерированного изображения
         """
         try:
-            import aiohttp
-            service_url = settings.IMAGE_SERVICE_URL.rstrip("/") + "/api/images/generate"
-            async with aiohttp.ClientSession() as session:
-                async with session.post(service_url, json={"prompt": prompt}) as resp:
-                    if resp.status != 200:
-                        detail = await resp.text()
-                        raise RuntimeError(f"Image service error {resp.status}: {detail}")
-                    data = await resp.json()
-                    image_url = data.get("image_url")
-                    if not image_url:
-                        raise RuntimeError("Image service returned no image_url")
-                    logger.info(f"Image generated successfully via KIE AI service: {image_url}")
-                    return image_url
+            # Получаем KIE клиент напрямую для обеспечения полного ожидания генерации
+            kie_client = get_kie_client()
+
+            logger.info(f"Генерируем изображение через KIE AI: {prompt[:100]}...")
+
+            # Генерация изображения (ожидание до 10 минут)
+            image_bytes = await kie_client.generate_image(prompt)
+
+            if not image_bytes:
+                raise RuntimeError("Пустой ответ от KIE API")
+
+            # Сохранение файла (PNG формат от KIE)
+            storage_dir = Path(settings.BASE_DIR) / "storage" / "images"
+            storage_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = f"{uuid4().hex}.png"
+            filepath = storage_dir / filename
+            filepath.write_bytes(image_bytes)
+
+            # Формирование URL для доступа к изображению
+            base_url = os.getenv('IMAGE_SERVICE_PUBLIC_BASE_URL', 'http://localhost:8000').rstrip("/")
+            image_url = f"{base_url}/images/{filename}"
+
+            logger.info(f"Изображение успешно сгенерировано и сохранено: {image_url}")
+            return image_url
+
         except Exception as e:
-            logger.error(f"Error generating image via service: {e}")
+            logger.error(f"Error generating image via KIE AI: {e}")
             return "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=1024&h=1024&q=80"
 
     async def regenerate_image(self, prompt: str) -> Tuple[str, Dict]:

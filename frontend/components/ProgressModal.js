@@ -36,7 +36,7 @@ const ProgressModal = ({
       id: 'editing',
       title: 'Генерация статьи',
       icon: EditIcon,
-        description: 'GPT-5 генерирует полную статью с SEO и изображением'
+      description: 'GPT-5 генерирует полную статью с SEO и изображением (может занять до 10 минут)'
     },
     {
       id: 'preview',
@@ -180,11 +180,13 @@ const ProgressModal = ({
                 <div>
                   <p className="text-blue-800 font-medium">
                     {currentStep === 'summary' && 'Создаем выжимку с помощью GPT-5...'}
-                    {currentStep === 'editing' && 'Генерируем полную статью с GPT-5...'}
+                    {currentStep === 'editing' && 'Генерируем полную статью с GPT-5 и изображение с KIE AI...'}
                     {currentStep === 'preview' && 'Подготавливаем предпросмотр...'}
                   </p>
                   <p className="text-blue-600 text-sm mt-1">
-                    Это может занять несколько секунд
+                    {currentStep === 'summary' && 'Это займет несколько секунд'}
+                    {currentStep === 'editing' && 'Генерация изображения может занять до 10 минут. Пожалуйста, подождите...'}
+                    {currentStep === 'preview' && 'Почти готово...'}
                   </p>
                 </div>
               </div>
