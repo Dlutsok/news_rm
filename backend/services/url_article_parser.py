@@ -2,6 +2,7 @@
 Сервис для парсинга статей из любых URL с использованием Jina AI Reader API
 """
 
+import asyncio
 import aiohttp
 import logging
 from typing import Optional, Dict, Any
@@ -268,15 +269,20 @@ class URLArticleParser:
         try:
             from trafilatura import fetch_url, extract
 
-            logger.info(f"Attempting trafilatura fallback for URL: {url}")
+            logger.info(f"🔧 [TRAFILATURA] ========== START FALLBACK ==========")
+            logger.info(f"🔧 [TRAFILATURA] URL: {url}")
 
             # Загружаем страницу
+            logger.info(f"🔧 [TRAFILATURA] Downloading page...")
             downloaded = fetch_url(url)
             if not downloaded:
-                logger.warning(f"Trafilatura: Failed to download URL: {url}")
+                logger.warning(f"🔧 [TRAFILATURA] ❌ Failed to download URL: {url}")
                 return None
+            
+            logger.info(f"🔧 [TRAFILATURA] ✅ Downloaded {len(downloaded)} bytes")
 
             # Извлекаем контент с оптимальными настройками
+            logger.info(f"🔧 [TRAFILATURA] Extracting content...")
             text = extract(
                 downloaded,
                 include_comments=False,  # Без комментариев
@@ -287,17 +293,18 @@ class URLArticleParser:
             )
 
             if text and len(text) > 100:
-                logger.info(f"Trafilatura extracted {len(text)} characters from {url}")
+                logger.info(f"🔧 [TRAFILATURA] ✅ Extracted {len(text)} characters")
+                logger.info(f"🔧 [TRAFILATURA] Preview: {text[:200]}...")
                 return text
             else:
-                logger.warning(f"Trafilatura: Content too short for URL: {url}")
+                logger.warning(f"🔧 [TRAFILATURA] ❌ Content too short: {len(text) if text else 0} chars")
                 return None
 
         except ImportError:
-            logger.warning("Trafilatura not installed. Install with: pip install trafilatura")
+            logger.error("🔧 [TRAFILATURA] ❌ Not installed! Run: pip install trafilatura")
             return None
         except Exception as e:
-            logger.error(f"Trafilatura error for {url}: {str(e)}", exc_info=True)
+            logger.error(f"🔧 [TRAFILATURA] ❌ Error: {str(e)}", exc_info=True)
             return None
 
     async def parse_article(self, url: str) -> Dict[str, Any]:
@@ -349,13 +356,21 @@ class URLArticleParser:
             'X-Remove-Selector': 'nav,header,footer,aside,.sidebar,.advertisement,.social-share,#comments,.cookie-notice,.related-posts,.newsletter,.popup,.promo,.banner,.widget,.ad,#sidebar,.share-buttons,.author-box,.modal,.age-verification,.login-prompt,.auth-form,.registration-form,.gdpr-notice,.contact-info,.company-info,.legal-info,.breadcrumbs,.tags,.categories,.popular-posts,.recent-posts,.upcoming-events,.event-list,.social-links,.footer-menu,.header-menu,.site-nav,.site-footer,.site-header',
         }
 
-        logger.info(f"Parsing article from URL: {url} via Jina AI Reader")
+        logger.info(f"🌐 [JINA] ========== START PARSING ==========")
+        logger.info(f"🌐 [JINA] Target URL: {url}")
+        logger.info(f"🌐 [JINA] Jina Reader URL: {jina_url}")
+        logger.info(f"🌐 [JINA] Headers: {headers}")
+        logger.info(f"🌐 [JINA] Timeout: {self.REQUEST_TIMEOUT}s")
 
         try:
             if not self.session:
                 raise RuntimeError("Session not initialized. Use 'async with' context manager.")
 
-            async with self.session.get(jina_url) as response:
+            logger.info(f"🌐 [JINA] Sending GET request...")
+            async with self.session.get(jina_url, headers=headers) as response:
+                logger.info(f"🌐 [JINA] Response status: {response.status}")
+                logger.info(f"🌐 [JINA] Response headers: {dict(response.headers)}")
+                
                 if response.status == 200:
                     raw_content = await response.text()
 
@@ -414,8 +429,32 @@ class URLArticleParser:
                         'error': None
                     }
                 else:
+                    # Читаем тело ответа для диагностики
+                    error_body = await response.text()
                     error_msg = f"HTTP {response.status}: {response.reason}"
-                    logger.error(f"Failed to parse {url}: {error_msg}")
+                    logger.error(f"❌ [JINA] Failed to parse {url}")
+                    logger.error(f"❌ [JINA] Status: {response.status}")
+                    logger.error(f"❌ [JINA] Reason: {response.reason}")
+                    logger.error(f"❌ [JINA] Response body: {error_body[:500] if error_body else 'empty'}")
+                    logger.info(f"🔄 [JINA] Trying trafilatura fallback...")
+                    
+                    # Пробуем trafilatura при HTTP ошибках от Jina
+                    fallback_content = await self._parse_via_trafilatura(url)
+                    if fallback_content:
+                        logger.info(f"✅ [JINA] Trafilatura fallback successful! Got {len(fallback_content)} chars")
+                        return {
+                            'success': True,
+                            'url': url,
+                            'content': fallback_content,
+                            'domain': domain,
+                            'title': None,
+                            'description': None,
+                            'published_date': None,
+                            'author': None,
+                            'error': None
+                        }
+                    
+                    logger.error(f"❌ [JINA] Trafilatura fallback also failed")
                     return {
                         'success': False,
                         'url': url,
@@ -428,13 +467,14 @@ class URLArticleParser:
                         'error': error_msg
                     }
 
-        except aiohttp.ClientError as e:
-            error_msg = f"Network error: {str(e)}"
-            logger.error(f"Jina failed for {url}, trying trafilatura: {error_msg}")
-
-            # Пробуем trafilatura при сетевых ошибках Jina
+        except asyncio.TimeoutError:
+            logger.error(f"⏱️ [JINA] TIMEOUT after {self.REQUEST_TIMEOUT}s for {url}")
+            logger.info(f"🔄 [JINA] Trying trafilatura fallback after timeout...")
+            
+            # Пробуем trafilatura при таймауте Jina
             fallback_content = await self._parse_via_trafilatura(url)
             if fallback_content:
+                logger.info(f"✅ [JINA] Trafilatura fallback successful after timeout!")
                 return {
                     'success': True,
                     'url': url,
@@ -447,6 +487,41 @@ class URLArticleParser:
                     'error': None
                 }
 
+            logger.error(f"❌ [JINA] Trafilatura also failed after Jina timeout")
+            return {
+                'success': False,
+                'url': url,
+                'content': '',
+                'domain': domain,
+                'title': None,
+                'description': None,
+                'published_date': None,
+                'author': None,
+                'error': f"Jina timeout after {self.REQUEST_TIMEOUT}s, trafilatura also failed"
+            }
+
+        except aiohttp.ClientError as e:
+            error_msg = f"Network error: {str(e)}"
+            logger.error(f"🌐 [JINA] Network error: {error_msg}")
+            logger.info(f"🔄 [JINA] Trying trafilatura fallback...")
+
+            # Пробуем trafilatura при сетевых ошибках Jina
+            fallback_content = await self._parse_via_trafilatura(url)
+            if fallback_content:
+                logger.info(f"✅ [JINA] Trafilatura fallback successful!")
+                return {
+                    'success': True,
+                    'url': url,
+                    'content': fallback_content,
+                    'domain': domain,
+                    'title': None,
+                    'description': None,
+                    'published_date': None,
+                    'author': None,
+                    'error': None
+                }
+
+            logger.error(f"❌ [JINA] Trafilatura also failed")
             return {
                 'success': False,
                 'url': url,
@@ -460,7 +535,25 @@ class URLArticleParser:
             }
         except Exception as e:
             error_msg = f"Unexpected error: {str(e)}"
-            logger.error(f"Failed to parse {url}: {error_msg}", exc_info=True)
+            logger.error(f"❌ [JINA] Unexpected error: {error_msg}", exc_info=True)
+            logger.info(f"🔄 [JINA] Trying trafilatura fallback...")
+            
+            # Пробуем trafilatura при любых ошибках
+            fallback_content = await self._parse_via_trafilatura(url)
+            if fallback_content:
+                logger.info(f"✅ [JINA] Trafilatura fallback successful!")
+                return {
+                    'success': True,
+                    'url': url,
+                    'content': fallback_content,
+                    'domain': domain,
+                    'title': None,
+                    'description': None,
+                    'published_date': None,
+                    'author': None,
+                    'error': None
+                }
+            
             return {
                 'success': False,
                 'url': url,

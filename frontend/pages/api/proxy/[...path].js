@@ -106,9 +106,23 @@ export default async function handler(req, res) {
     }
   }
 
+  // Определяем таймаут для разных эндпоинтов
+  let timeoutMs = 60000 // 1 минута по умолчанию
+  if (apiPath.includes('/url-articles/') || apiPath.includes('/news-generation/') || apiPath.includes('/news/parse')) {
+    timeoutMs = 120000 // 2 минуты для долгих операций
+    console.log('🔶 [Proxy] Long operation detected, timeout:', timeoutMs / 1000, 'sec')
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => {
+    console.log('🔴 [Proxy] TIMEOUT after', timeoutMs / 1000, 'seconds!')
+    controller.abort()
+  }, timeoutMs)
+
   console.log('🔶 [Proxy] Sending fetch to backend...')
   try {
-    const response = await fetch(url.toString(), init)
+    const response = await fetch(url.toString(), { ...init, signal: controller.signal })
+    clearTimeout(timeoutId)
     console.log('🔶 [Proxy] Got response from backend:', response.status)
     const contentType = response.headers.get('content-type') || ''
     const status = response.status
@@ -126,6 +140,11 @@ export default async function handler(req, res) {
     })
     return res.send(Buffer.from(buf))
   } catch (e) {
+    clearTimeout(timeoutId)
+    if (e.name === 'AbortError') {
+      console.error('🔴 [Proxy] Request timeout after', timeoutMs / 1000, 'seconds')
+      return res.status(408).json({ error: 'Request timeout', detail: `Request timeout after ${timeoutMs / 1000} seconds` })
+    }
     console.error('🔴 [Proxy] Error:', e)
     return res.status(502).json({ error: 'Proxy error', detail: e?.message })
   }
