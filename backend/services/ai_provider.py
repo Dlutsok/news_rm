@@ -75,7 +75,7 @@ class OpenAIProvider:
         # Настройка клиента с прокси
         client_kwargs = {"timeout": httpx.Timeout(60.0)}
         if self.proxy_url:
-            client_kwargs['proxies'] = self.proxy_url
+            client_kwargs['proxy'] = self.proxy_url
             logger.debug(f"🔗 Используется прокси для OpenAI запроса к модели {model}")
 
         async with httpx.AsyncClient(**client_kwargs) as client:
@@ -133,7 +133,7 @@ class OpenAIProvider:
         # Настройка клиента с прокси
         client_kwargs = {"timeout": httpx.Timeout(60.0)}
         if self.proxy_url:
-            client_kwargs['proxies'] = self.proxy_url
+            client_kwargs['proxy'] = self.proxy_url
             logger.debug(f"🔗 Используется прокси для стримингового OpenAI запроса к модели {model}")
 
         async with httpx.AsyncClient(**client_kwargs) as client:
